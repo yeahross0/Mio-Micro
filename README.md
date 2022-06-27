@@ -4,6 +4,8 @@ This project can extract the AI data from mio files and attempt to play the game
 
 [Test it out here](https://yeahross.itch.io/mio-micro). Drag and drop a MIO file and open the console logs to see the JSON output.
 
+There are some notes on the file format in notes.md.
+
 ## Parser
 
 A parser that can convert a binary mio file to JSON. A simple example JSON result:
