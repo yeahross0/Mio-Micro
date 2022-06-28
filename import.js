@@ -789,7 +789,7 @@ class InstructionData {
 		}
 		else if (second_hex_digit(this.data[offset]) == 5) {
 			// TODO:
-			let effect = first_hex_digit(this.data[offset]) * 8 + second_hex_digit(this.data[offset]);
+			let effect = first_hex_digit(this.data[offset]) * 8 + first_hex_digit(this.data[offset + 1]);
 			return { tag: Action.SoundEffect, effect };
 		} else if (action_tag == 0x06) {
 			return { tag: Action.ScreenEffect, effect: ScreenEffect.Flash };

@@ -2,7 +2,7 @@
 <html>
 <head>
     <meta charset='utf-8' />
-    <title>Gamedev Canvas Workshop</title>
+    <title>Mio Micro</title>
 	<script type='text/javascript' src='import.js'></script>
     <style>
     	* { padding: 0; margin: 0; }
@@ -30,6 +30,91 @@ intro.onload = () => {
     context.drawImage(intro, 0, 0);   
 }
 
+let audio_names = [
+	'explosion',
+	'glass',
+	'gong',
+	'spring',
+	'pistol',
+	'slice',
+	'camera',
+	'splash',
+	'correct',
+	'incorrect',
+	'switch',
+	'input',
+	'falling',
+	'wiggle',
+	'rising',
+	'victory',
+	'batting',
+	'swing',
+	'impact',
+	'kick',
+	'racquet',
+	'bowling',
+	'sunk_putt',
+	'whistle',
+	'frying_pan',
+	'bell',
+	'knife_chop',
+	'mobile_phone',
+	'razor',
+	'mobile_phone',
+	'popped_cork',
+	'water',
+	'sneeze',
+	'snap',
+	'munching',
+	'gulp',
+	'punch',
+	'foot_stamp',
+	'gasp',
+	'applause',
+	'cat',
+	'big_dog',
+	'pig',
+	'small_dog',
+	'wolf',
+	'crow',
+	'tiger',
+	'wing_flap',
+	'baby',
+	'giggle',
+	'scream',
+	'too_bad',
+	'kung_fu',
+	'lets_fight',
+	'cheering',
+	'booing',
+	'mario_jump',
+	'coin',
+	'power_up',
+	'power_down',
+	'shell_kick',
+	'cannon',
+	'struck',
+	'barrel_hop',
+];
+
+let sounds = [];
+
+const load_sound = (name) => {
+	let audio = new Audio('sounds/' + name + '.ogg');
+	audio.volume = 1;
+	sounds.push(audio);
+	return audio;
+};
+
+audio_names.forEach(name => {
+	let audio = new Audio('sounds/' + name + '.ogg');
+	audio.volume = 1;
+	sounds.push(audio);
+});
+
+let win_sounds = [load_sound('win1'), load_sound('win2')];
+let lose_sounds = [load_sound('lose1'), load_sound('lose2')];
+
 let random_in_range = (min, max) => min + Math.floor((max - min) * Math.random());
 let random_int_in_range = (min, max) => Math.floor(random_in_range(min, max));
 let random_in_array = (array) => array[random_int_in_range(0, array.length)];
@@ -55,6 +140,7 @@ function position_in_area(area, size) {
     return { x, y }
 }
 
+// TODO: Replace these with the correct values
 function animation_time_from_speed(speed) {
 	let time;
 	switch (speed) {
@@ -480,15 +566,24 @@ async function dropHandler(event) {
 	}
 }
 
+const ButtonState = {
+	Up: 'Up',
+	Release: 'Release',
+	Down: 'Down',
+	Press: 'Press'
+};
+
 let mouse = {
 	x: 0,
 	y: 0,
-	pressed: false,
+	state: ButtonState.Up,
 };
 
 document.addEventListener('mousemove', handle_mouse_move, false);
 document.addEventListener('mousedown', handle_mouse_down, false);
 document.addEventListener('mouseup', handle_mouse_up, false)
+
+let mouse_down = false;
 
 function handle_mouse_move(event) {
 	mouse.x = event.clientX - canvas.offsetLeft;
@@ -498,13 +593,13 @@ function handle_mouse_move(event) {
 // TODO: Set pressed only on the first frame it is down
 function handle_mouse_down(event) {
 	if (event.button === 0) {
-		mouse.pressed = true;
+		mouse_down = true;
 	}
 }
 
 function handle_mouse_up(event) {
 	if (event.button === 0) {
-		mouse.pressed = false;
+		mouse_down = false;
 	}
 }
 
@@ -532,12 +627,12 @@ function is_triggered(state, i, trigger, game_data) {
 	let props = state.properties[i];
 	switch (trigger.tag) {
 		case Trigger.TapAnywhere: {
-			return mouse.pressed;
+			return mouse.state === ButtonState.Press;
 		}
 		case Trigger.TapThisObject: {
 			let size = props.size;
 			let half_size = size / 2;
-			if (mouse.pressed) {
+			if (mouse.state === ButtonState.Press) {
 				let pixel_x = mouse.x - props.position.x + half_size;
 				let pixel_y = mouse.y - props.position.y + half_size;
 				if (pixel_x < 0.0
@@ -924,6 +1019,7 @@ function apply_action(state, i, action, game_data) {
 				&& state.win_status != GameCondition.Loss
 				&& state.win_status != GameCondition.HasBeenWon)
 			{
+				random_in_array(lose_sounds).play();
 				state.win_status = GameCondition.Loss;
 			}
 			return;
@@ -945,7 +1041,9 @@ function apply_action(state, i, action, game_data) {
 			return;
 		}
 		case Action.SoundEffect: {
-			// TODO: Ignored
+			if (sounds[action.effect].paused) {
+				sounds[action.effect].play();
+			}
 			return;
 		}
 		case Action.ScreenEffect: {
@@ -964,6 +1062,21 @@ function runFrame(game_data, state, assets) {
 	}
 	let old_win_status = state.win_status;
 	let triggered_actions = [];
+	
+	if (mouse.state === ButtonState.Up || mouse.state === ButtonState.Release) { 
+		if (mouse_down) {
+			console.log('Mouse pressed');
+			mouse.state = ButtonState.Press;
+		} else {
+			mouse.state = ButtonState.Up;
+		}
+	} else if (mouse.state === ButtonState.Down || mouse.state === ButtonState.Press) { 
+		if (mouse_down) {
+			mouse.state = ButtonState.Down;
+		} else {
+			mouse.state = ButtonState.Release;
+		}
+	}
 	
 	if (!state.is_frozen) {
 		for (let i = 0; i < game_data.objects.length; i++) {
@@ -1172,6 +1285,7 @@ function runFrame(game_data, state, assets) {
 				
 				if (won === true) {
 					console.log('Game Won');
+					random_in_array(win_sounds).play();
 					state.win_status = GameCondition.Win;
 				}
 			}
