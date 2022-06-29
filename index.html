@@ -11,7 +11,7 @@
 </head>
 <body style='overflow:hidden'>
 
-<canvas id='canvas' width='192' height='128' ondrop='dropHandler(event);' ondragover='dragOverHandler(event);'></canvas>
+<canvas id='canvas' width='192' height='128' ondrop='drop_handler(event);' ondragover='drag_over_handler(event);'></canvas>
 
 <script>
 
@@ -22,6 +22,35 @@ const COLOUR_BYTES_COUNT = 4;
 
 let canvas = document.getElementById('canvas');
 let context = canvas.getContext('2d');
+
+const ideal_canvas_width = 192;
+const ideal_canvas_height = 128;
+
+let scale = window_scale(window);
+scale_canvas(scale);
+
+function window_size(window) {
+	return [window.innerWidth, window.innerHeight];
+}
+
+function window_scale(window) {
+	let [width, height] = window_size(window);
+	return Math.min(width / ideal_canvas_width, height / ideal_canvas_height);
+	
+}
+
+function scale_canvas(scale) {
+	canvas.width = ideal_canvas_width * scale;
+	canvas.height = ideal_canvas_height * scale;
+	context.scale(scale, scale);
+	context.imageSmoothingEnabled = false;
+}
+
+window.addEventListener("resize", handleWindowResize, false)
+function handleWindowResize(event) {
+	scale = window_scale(window);
+	scale_canvas(scale);
+}
 
 let intro = new Image();
 intro.src = 'images/intro.png';
@@ -115,7 +144,7 @@ audio_names.forEach(name => {
 let win_sounds = [load_sound('win1'), load_sound('win2')];
 let lose_sounds = [load_sound('lose1'), load_sound('lose2')];
 
-let random_in_range = (min, max) => min + Math.floor((max - min) * Math.random());
+let random_in_range = (min, max) => min + (max - min) * Math.random();
 let random_int_in_range = (min, max) => Math.floor(random_in_range(min, max));
 let random_in_array = (array) => array[random_int_in_range(0, array.length)];
 
@@ -143,56 +172,62 @@ function position_in_area(area, size) {
 // TODO: Replace these with the correct values
 function animation_time_from_speed(speed) {
 	let time;
+	/*let animation_times = {
+		[Speed.Slowest]: 16
+	*/
 	switch (speed) {
 		case Speed.Slowest: {
-			time = 16;
+			time = 60;
 			break;
 		}
 		case Speed.Slow: {
-			time = 8;
+			time = 30;
 			break;
 		}
 		case Speed.Normal: {
-			time = 4;
+			time = 15;
 			break;
 		}
 		case Speed.Fast: {
-			time = 2;
+			time = 8;
 			break;
 		}
 		case Speed.Fastest: {
-			time = 1;
+			time = 4;
 			break;
 		}
+		default: {
+			console.warn('Unreachable animation time');
+		}
 	}
-	return 8 * time;
+	return time * 2;
 };
 
 function value_from_speed(speed) {
 	let value;
 	switch (speed) {
 		case Speed.Slowest: {
-			value = 1;
+			value = 0.25;
 			break;
 		}
 		case Speed.Slow: {
-			value = 2;
+			value = 0.5;
 			break;
 		}
 		case Speed.Normal: {
-			value = 4;
+			value = 0.75;
 			break;
 		}
 		case Speed.Fast: {
-			value = 8;
+			value = 1.5;
 			break;
 		}
 		case Speed.Fastest: {
-			value = 16;
+			value = 3;
 			break;
 		}
 	}
-	return 0.25 * value;
+	return value;
 };
 
 const ActiveTravel = {
@@ -204,10 +239,22 @@ const ActiveTravel = {
 	Stop: 'Stop'
 };
 
-let game_id = 0;
+const BounceDirection = {
+	Left: 'Left',
+	Right: 'Right',
+	None: 'None'
+};
 
-async function dropHandler(event) {
-	game_id++;
+let game_id = 0;
+let mio_data = null;
+
+window.addEventListener("keydown", event => {
+  if (event.code === "KeyR" && mio_data !== null) {
+	load_game(mio_data);
+  }
+}, true);
+
+async function drop_handler(event) {
 	console.log('File(s) dropped');
 
 	event.preventDefault();
@@ -218,344 +265,8 @@ async function dropHandler(event) {
 				const file = event.dataTransfer.items[item].getAsFile();
 				console.log('file: ', file.name);
 				let buffer = await bufferFromFile(file);
-				let data = new Uint8Array(buffer);
-				let game_data = new GameData(data);
-				console.log(game_data.name);
-				
-				let bg_offset = 0x100;
-				let bg_length = 0x30FF - bg_offset;
-				let scrambled_pixels = [];
-				
-				for (let i = bg_offset; i <= bg_offset + bg_length; i++) {
-					scrambled_pixels.push(second_hex_digit(data[i]));
-					scrambled_pixels.push(first_hex_digit(data[i]));
-				}
-				
-				let pixel_value = pixel => {
-					switch (pixel) {
-						case 0x00: {
-							return [0, 0, 0, 0];
-						}
-						case 0x01: {
-							return [0, 0, 0, 255];
-						}
-						case 0x02: {
-							return [255, 222, 156, 255];
-						}
-						case 0x03: {
-							return [255, 173, 49, 255];
-						}
-						case 0x04: {
-							return [198, 74, 0, 255];
-						}
-						case 0x05: {
-							return [255, 0, 0, 255];
-						}
-						case 0x06: {
-							return [206, 107, 239, 255];
-						}
-						case 0x07: {
-							return [16, 198, 206, 255];
-						}
-						case 0x08: {
-							return [41, 107, 198, 255];
-						}
-						case 0x09: {
-							return [8, 148, 82, 255];
-						}
-						case 0x0A: {
-							return [115, 214, 57, 255];
-						}
-						case 0x0B: {
-							return [255, 255, 90, 255];
-						}
-						case 0x0C: {
-							return [123, 123, 123, 255];
-						}
-						case 0x0D: {
-							return [198, 198, 198, 255];
-						}
-						case 0x0E: {
-							return [255, 255, 255, 255];
-						}
-						// TODO: Set 0x0F correctly
-						case 0x0F: {
-							return [0, 0, 255, 255];
-						}
-						default: {
-							console.warn('Unreachable Pixel Colour', pixel);
-						}
-					}
-				};
-				
-				let background_pixels = new Uint8ClampedArray(BACKGROUND_PIXEL_COUNT * COLOUR_BYTES_COUNT);
-				
-				for (let i = 0; i < BACKGROUND_PIXEL_COUNT; i++) {
-					let block_size = 1536;
-					let block_index = Math.floor(i / block_size);
-					let internal_index = i % block_size;
-					let grid_square_index = Math.floor(internal_index / 64);
-					let grid_column_index = i % 8;
-					let grid_row_index = Math.floor(internal_index / 8) % 8; // TODO:
-					let column_index = (grid_square_index * 8 + grid_column_index);
-					let row_index = (block_index * 8 + grid_row_index);
-					
-					let colour = pixel_value(scrambled_pixels[i]);
-					
-					for (let c = 0; c < colour.length; c++) {
-						//let colour = [255, 0, 0, 255];
-						let index = row_index * BACKGROUND_WIDTH + column_index;
-						background_pixels[index * COLOUR_BYTES_COUNT + c] = colour[c];
-					}
-				}
-
-				let background_image_data = context.createImageData(BACKGROUND_WIDTH, BACKGROUND_HEIGHT);
-				background_image_data.data.set(background_pixels);
-				
-				let temp_canvas = document.createElement('canvas');
-				let temp_context = temp_canvas.getContext('2d');
-
-				temp_canvas.width = BACKGROUND_WIDTH;
-				temp_canvas.height = BACKGROUND_HEIGHT;
-				temp_context.putImageData(background_image_data, 0, 0);
-				let background_image = new Image();
-				background_image.src = temp_canvas.toDataURL();
-	
-				let images_offset = 0x3104;
-				let images_length = 0xB103 - images_offset;
-				let images_pixels = [];
-				for (let i = images_offset; i <= images_offset + images_length; i++) {
-					images_pixels.push(second_hex_digit(data[i]));
-					images_pixels.push(first_hex_digit(data[i]));
-				}
-				
-				let image_data = {};
-				let collision_data = {};
-				
-				for (let i = 0; i < OBJECT_COUNT; i++) {
-					let object = game_data.object(i);
-					if (!object.is_active) {
-						continue;
-					}
-					
-					let size = object.sprite_size;
-					
-					for (let j = 0; j < ART_BANK_COUNT; j++) {
-						let art = object.art(j);
-						if (!art.is_active) {
-							continue;
-						}
-						let bank = art.bank;
-						for (let b = 0; b < bank.length; b++) {
-							let grid_width = 8;
-							let grid_height = 8;
-							let grids_used;
-							let grid_multiplier = 4;
-							switch (size) {
-								case 16: {
-									grids_used = 1 * grid_multiplier;
-									break;
-								}
-								case 32: {
-									grids_used = 4 * grid_multiplier;
-									break;
-								}
-								case 48: {
-									grids_used = 9 * grid_multiplier;
-									break;
-								}
-								case 64: {
-									grids_used = 16 * grid_multiplier;
-									break;
-								}
-								default: {
-									console.warn('Unreachable Size');
-								}
-							}
-							
-							let first_grid = bank[b] * 4;
-							let first_pixel_index = first_grid * grid_width * grid_height;
-							let total_pixel_count = grids_used * grid_width * grid_height;
-							
-							let image = context.createImageData(size, size);
-							for (let index = 0; index < total_pixel_count; index++) {
-								let pixel = images_pixels[first_pixel_index + index];
-								let grid = Math.floor(index / 64);
-								let internal_grid_index = index % 64;
-								let grid_column_index = index % 8;
-								let grid_row_index = Math.floor(internal_grid_index / 8);
-								let grid_base_x = grid % Math.floor(size / 8);
-								let grid_base_y = Math.floor(grid / Math.floor(size / 8));
-								let column_index = grid_base_x * 8 + grid_column_index;
-								let row_index = grid_base_y * 8 + grid_row_index;
-								
-								let colour = pixel_value(pixel);
-								
-								for (let c = 0; c < colour.length; c++) {
-									let pixel_index = row_index * size + column_index;
-									image.data[pixel_index * COLOUR_BYTES_COUNT + c] = colour[c];
-								}
-							}
-							let temp_canvas = document.createElement('canvas');
-							let temp_context = temp_canvas.getContext('2d');
-
-							temp_canvas.width = size;
-							temp_canvas.height = size;
-							temp_context.putImageData(image, 0, 0);
-							let sprite = new Image();
-							sprite.src = temp_canvas.toDataURL();
-							image_data[bank[b]] = sprite;
-							collision_data[bank[b]] = image.data;
-						}
-					}
-				}
-				
-				let win_conditions = [];
-
-				for (let i = 0; i < WIN_CONDITIONS_COUNT; i++) {
-					win_conditions.push([]);
-					for (let j = 0; j < SWITCH_CONDITIONS_COUNT; j++) {
-						let condition = game_data.win_condition(i, j);
-						if (condition !== null) {
-							win_conditions[i].push(condition);
-						}
-					}
-				}
-				console.log(win_conditions);
-				
-				let length = game_data.length;
-				
-				let objects = [];
-				
-				for (let i = 0; i < OBJECT_COUNT; i++) {
-					let object = game_data.object(i);
-					
-					if (object.is_active) {
-						let art_set = [];
-						for (let a = 0; a < OBJECT_ART_COUNT; a++) {
-							let art = object.art(a);
-							if (art.is_active) {
-								let bank = art.bank;
-								art_set.push({ name: art.name, bank });
-							} else {
-								art_set.push(null);
-							}
-						}
-						
-						let assembly = object.assembly;
-						
-						if (assembly.is_active) {
-							let start_instruction = assembly.start_instruction;
-						
-							let instructions = [];
-							
-							for (let ins = 0; ins < INSTRUCTION_COUNT; ins++) {
-								let instruction = assembly.instruction(ins);
-								if (instruction.is_active) {
-									let triggers = [];
-									for (let t = 0; t < TRIGGER_COUNT; t++) {
-										let trigger = instruction.trigger(t);
-										if (trigger !== null) {
-											triggers.push(trigger);
-										}
-									}
-									let actions = [];
-									for (let a = 0; a < ACTION_COUNT; a++) {
-										let action = instruction.action(a);
-										if (action !== null) {
-											actions.push(action);
-										}
-									}
-									instructions.push({ triggers, actions });
-								}
-							}
-						
-							objects.push({
-								name: object.name,
-								sprite_size: object.sprite_size,
-								art: art_set,
-								start_instruction,
-								instructions,
-							});
-						}
-					} else {
-						objects.push(null);
-					}
-				}
-				
-				console.log(objects);
-				
-				console.log(JSON.stringify({ length, objects, win_conditions }, null, 4));
-				
-				let layers = [];
-				
-				for (let layer = 0; layer < objects.length; layer++) {
-					// TODO: Verify this
-					let index = data[0xE5F6 + objects.length - layer - 1];
-					layers.push(index);
-				}
-				
-				let properties = [];
-				
-				for (let i = 0; i < objects.length; i++) {
-					if (objects[i] === null) {
-						properties.push(null);
-						continue;
-					}
-					let location = objects[i].start_instruction.location;
-					let size = objects[i].sprite_size;
-					let position;
-					let travel = { tag: ActiveTravel.Stop };
-					if (location.tag == StartLocation.Position) {
-						position = clone_position(location.position);
-					} else if (location.tag == StartLocation.Area) {
-						// TODO: Does this use size only taking into account pixels with a colour value?
-						position = position_in_area(location.area, size);
-					} else if (location.tag == StartLocation.AttachToObject) {
-						// TODO:
-						position = { x: random_int_in_range(1000, 100000), y: random_int_in_range(1000, 100000) };
-						
-						travel = {
-							tag: ActiveTravel.AttachTo,
-							index: location.index,
-							offset: location.offset
-						};
-					}
-					
-					let start_art =  objects[i].start_instruction.art;
-					let art_index = start_art.index;
-					let art = objects[i].art[art_index];
-					let bank_index = art.bank[0];
-					
-					properties.push({
-						position,
-						size,
-						art: {
-							bank_index,
-							art_index,
-							style: start_art.style,
-							speed: start_art.speed,
-							finished_playing: false,
-							animation_index: 0,
-							time_to_next_change: animation_time_from_speed(start_art.speed)
-						},
-						travel,
-						switch_state: SwitchWhen.IsOff,
-						next_switch_state: SwitchWhen.IsOff,
-						touched_previous_frame: [],
-						done_time_triggers: []
-					});
-				}
-				
-				console.log(properties);
-				
-				requestAnimationFrame(() => {
-					runFrame(
-						{ id: game_id, length, objects, win_conditions, layers, collision_data },
-						{ properties, win_status: GameCondition.NotYetWon, frame: 0, is_frozen: false },
-						{ image_data, background_image }
-					);
-				})
+				mio_data = new Uint8Array(buffer);
+				load_game(mio_data);
 			}
 			
 		}
@@ -564,6 +275,347 @@ async function dropHandler(event) {
 			console.warn('Not Implemented');
 		}
 	}
+}
+
+function load_game(data) {
+	game_id++;
+	let game_data = new GameData(data);
+	console.log(game_data.name);
+	
+	let bg_offset = 0x100;
+	let bg_length = 0x30FF - bg_offset;
+	let scrambled_pixels = [];
+	
+	for (let i = bg_offset; i <= bg_offset + bg_length; i++) {
+		scrambled_pixels.push(second_hex_digit(data[i]));
+		scrambled_pixels.push(first_hex_digit(data[i]));
+	}
+	
+	let pixel_value = pixel => {
+		switch (pixel) {
+			case 0x00: {
+				return [0, 0, 0, 0];
+			}
+			case 0x01: {
+				return [0, 0, 0, 255];
+			}
+			case 0x02: {
+				return [255, 222, 156, 255];
+			}
+			case 0x03: {
+				return [255, 173, 49, 255];
+			}
+			case 0x04: {
+				return [198, 74, 0, 255];
+			}
+			case 0x05: {
+				return [255, 0, 0, 255];
+			}
+			case 0x06: {
+				return [206, 107, 239, 255];
+			}
+			case 0x07: {
+				return [16, 198, 206, 255];
+			}
+			case 0x08: {
+				return [41, 107, 198, 255];
+			}
+			case 0x09: {
+				return [8, 148, 82, 255];
+			}
+			case 0x0A: {
+				return [115, 214, 57, 255];
+			}
+			case 0x0B: {
+				return [255, 255, 90, 255];
+			}
+			case 0x0C: {
+				return [123, 123, 123, 255];
+			}
+			case 0x0D: {
+				return [198, 198, 198, 255];
+			}
+			case 0x0E: {
+				return [255, 255, 255, 255];
+			}
+			// TODO: Set 0x0F correctly
+			case 0x0F: {
+				return [0, 0, 255, 255];
+			}
+			default: {
+				console.warn('Unreachable Pixel Colour', pixel);
+			}
+		}
+	};
+	
+	let background_pixels = new Uint8ClampedArray(BACKGROUND_PIXEL_COUNT * COLOUR_BYTES_COUNT);
+	
+	for (let i = 0; i < BACKGROUND_PIXEL_COUNT; i++) {
+		let block_size = 1536;
+		let block_index = Math.floor(i / block_size);
+		let internal_index = i % block_size;
+		let grid_square_index = Math.floor(internal_index / 64);
+		let grid_column_index = i % 8;
+		let grid_row_index = Math.floor(internal_index / 8) % 8; // TODO:
+		let column_index = (grid_square_index * 8 + grid_column_index);
+		let row_index = (block_index * 8 + grid_row_index);
+		
+		let colour = pixel_value(scrambled_pixels[i]);
+		
+		for (let c = 0; c < colour.length; c++) {
+			//let colour = [255, 0, 0, 255];
+			let index = row_index * BACKGROUND_WIDTH + column_index;
+			background_pixels[index * COLOUR_BYTES_COUNT + c] = colour[c];
+		}
+	}
+
+	let background_image_data = context.createImageData(BACKGROUND_WIDTH, BACKGROUND_HEIGHT);
+	background_image_data.data.set(background_pixels);
+	
+	let temp_canvas = document.createElement('canvas');
+	let temp_context = temp_canvas.getContext('2d');
+
+	temp_canvas.width = BACKGROUND_WIDTH;
+	temp_canvas.height = BACKGROUND_HEIGHT;
+	temp_context.putImageData(background_image_data, 0, 0);
+	let background_image = new Image();
+	background_image.src = temp_canvas.toDataURL();
+
+	let images_offset = 0x3104;
+	let images_length = 0xB103 - images_offset;
+	let images_pixels = [];
+	for (let i = images_offset; i <= images_offset + images_length; i++) {
+		images_pixels.push(second_hex_digit(data[i]));
+		images_pixels.push(first_hex_digit(data[i]));
+	}
+	
+	let image_data = {};
+	let collision_data = {};
+	
+	for (let i = 0; i < OBJECT_COUNT; i++) {
+		let object = game_data.object(i);
+		if (!object.is_active) {
+			continue;
+		}
+		
+		let size = object.sprite_size;
+		
+		for (let j = 0; j < ART_BANK_COUNT; j++) {
+			let art = object.art(j);
+			if (!art.is_active) {
+				continue;
+			}
+			let bank = art.bank;
+			for (let b = 0; b < bank.length; b++) {
+				let grid_width = 8;
+				let grid_height = 8;
+				let grids_used;
+				let grid_multiplier = 4;
+				switch (size) {
+					case 16: {
+						grids_used = 1 * grid_multiplier;
+						break;
+					}
+					case 32: {
+						grids_used = 4 * grid_multiplier;
+						break;
+					}
+					case 48: {
+						grids_used = 9 * grid_multiplier;
+						break;
+					}
+					case 64: {
+						grids_used = 16 * grid_multiplier;
+						break;
+					}
+					default: {
+						console.warn('Unreachable Size');
+					}
+				}
+				
+				let first_grid = bank[b] * 4;
+				let first_pixel_index = first_grid * grid_width * grid_height;
+				let total_pixel_count = grids_used * grid_width * grid_height;
+				
+				let image = context.createImageData(size, size);
+				for (let index = 0; index < total_pixel_count; index++) {
+					let pixel = images_pixels[first_pixel_index + index];
+					let grid = Math.floor(index / 64);
+					let internal_grid_index = index % 64;
+					let grid_column_index = index % 8;
+					let grid_row_index = Math.floor(internal_grid_index / 8);
+					let grid_base_x = grid % Math.floor(size / 8);
+					let grid_base_y = Math.floor(grid / Math.floor(size / 8));
+					let column_index = grid_base_x * 8 + grid_column_index;
+					let row_index = grid_base_y * 8 + grid_row_index;
+					
+					let colour = pixel_value(pixel);
+					
+					for (let c = 0; c < colour.length; c++) {
+						let pixel_index = row_index * size + column_index;
+						image.data[pixel_index * COLOUR_BYTES_COUNT + c] = colour[c];
+					}
+				}
+				let temp_canvas = document.createElement('canvas');
+				let temp_context = temp_canvas.getContext('2d');
+
+				temp_canvas.width = size;
+				temp_canvas.height = size;
+				temp_context.putImageData(image, 0, 0);
+				let sprite = new Image();
+				sprite.src = temp_canvas.toDataURL();
+				image_data[bank[b]] = sprite;
+				collision_data[bank[b]] = image.data;
+			}
+		}
+	}
+	
+	let win_conditions = [];
+
+	for (let i = 0; i < WIN_CONDITIONS_COUNT; i++) {
+		win_conditions.push([]);
+		for (let j = 0; j < SWITCH_CONDITIONS_COUNT; j++) {
+			let condition = game_data.win_condition(i, j);
+			if (condition !== null) {
+				win_conditions[i].push(condition);
+			}
+		}
+	}
+	console.log(win_conditions);
+	
+	let length = game_data.length;
+	
+	let objects = [];
+	
+	for (let i = 0; i < OBJECT_COUNT; i++) {
+		let object = game_data.object(i);
+		
+		if (object.is_active) {
+			let art_set = [];
+			for (let a = 0; a < OBJECT_ART_COUNT; a++) {
+				let art = object.art(a);
+				if (art.is_active) {
+					let bank = art.bank;
+					art_set.push({ name: art.name, bank });
+				} else {
+					art_set.push(null);
+				}
+			}
+			
+			let assembly = object.assembly;
+			
+			if (assembly.is_active) {
+				let start_instruction = assembly.start_instruction;
+			
+				let instructions = [];
+				
+				for (let ins = 0; ins < INSTRUCTION_COUNT; ins++) {
+					let instruction = assembly.instruction(ins);
+					if (instruction.is_active) {
+						let triggers = [];
+						for (let t = 0; t < TRIGGER_COUNT; t++) {
+							let trigger = instruction.trigger(t);
+							if (trigger !== null) {
+								triggers.push(trigger);
+							}
+						}
+						let actions = [];
+						for (let a = 0; a < ACTION_COUNT; a++) {
+							let action = instruction.action(a);
+							if (action !== null) {
+								actions.push(action);
+							}
+						}
+						instructions.push({ triggers, actions });
+					}
+				}
+			
+				objects.push({
+					name: object.name,
+					sprite_size: object.sprite_size,
+					art: art_set,
+					start_instruction,
+					instructions,
+				});
+			}
+		} else {
+			objects.push(null);
+		}
+	}
+	
+	console.log(objects);
+	
+	let layers = [];
+	
+	for (let layer = 0; layer < objects.length; layer++) {
+		// TODO: Verify this
+		let index = data[0xE5F6 + objects.length - layer - 1];
+		layers.push(index);
+	}
+	
+	console.log(JSON.stringify({ length, objects, win_conditions, layers }, null, 4));
+	
+	let properties = [];
+	
+	for (let i = 0; i < objects.length; i++) {
+		if (objects[i] === null) {
+			properties.push(null);
+			continue;
+		}
+		let location = objects[i].start_instruction.location;
+		let size = objects[i].sprite_size;
+		let position;
+		let travel = { tag: ActiveTravel.Stop };
+		if (location.tag == StartLocation.Position) {
+			position = clone_position(location.position);
+		} else if (location.tag == StartLocation.Area) {
+			// TODO: Does this use size only taking into account pixels with a colour value?
+			position = position_in_area(location.area, size);
+		} else if (location.tag == StartLocation.AttachToObject) {
+			// TODO:
+			position = { x: random_int_in_range(1000, 100000), y: random_int_in_range(1000, 100000) };
+			
+			travel = {
+				tag: ActiveTravel.AttachTo,
+				index: location.index,
+				offset: location.offset
+			};
+		}
+		
+		let start_art =  objects[i].start_instruction.art;
+		let art_index = start_art.index;
+		let art = objects[i].art[art_index];
+		let bank_index = art.bank[0];
+		
+		properties.push({
+			position,
+			size,
+			art: {
+				bank_index,
+				art_index,
+				style: start_art.style,
+				speed: start_art.speed,
+				finished_playing: false,
+				animation_index: 0,
+				time_to_next_change: animation_time_from_speed(start_art.speed)
+			},
+			travel,
+			switch_state: SwitchWhen.IsOff,
+			next_switch_state: SwitchWhen.IsOff,
+			touched_previous_frame: [],
+			done_time_triggers: []
+		});
+	}
+	
+	console.log(properties);
+	
+	requestAnimationFrame(() => {
+		run_frame(
+			{ id: game_id, length, objects, win_conditions, layers, collision_data },
+			{ properties, win_status: GameCondition.NotYetWon, frame: 0, time: 0, is_frozen: false },
+			{ image_data, background_image }
+		);
+	})
 }
 
 const ButtonState = {
@@ -586,8 +638,8 @@ document.addEventListener('mouseup', handle_mouse_up, false)
 let mouse_down = false;
 
 function handle_mouse_move(event) {
-	mouse.x = event.clientX - canvas.offsetLeft;
-	mouse.y = event.clientY - canvas.offsetTop;
+	mouse.x = Math.floor((event.clientX - canvas.offsetLeft) / scale);
+	mouse.y = Math.floor((event.clientY - canvas.offsetTop) / scale);
 }
 
 // TODO: Set pressed only on the first frame it is down
@@ -623,6 +675,18 @@ function is_triggered(state, i, trigger, game_data) {
 			}
 		}
 	}
+	
+	let time_with_end = (time) => {
+		if (time === Time.End) {
+			if (game_data.length === Length.Short || game_data.length === Length.Boss) {
+				return 32;
+			} else if (game_data.length === Length.Long) {
+				return 64;
+			}
+		} else {
+			return time;
+		}
+	};
 
 	let props = state.properties[i];
 	switch (trigger.tag) {
@@ -633,8 +697,8 @@ function is_triggered(state, i, trigger, game_data) {
 			let size = props.size;
 			let half_size = size / 2;
 			if (mouse.state === ButtonState.Press) {
-				let pixel_x = mouse.x - props.position.x + half_size;
-				let pixel_y = mouse.y - props.position.y + half_size;
+				let pixel_x = Math.floor(mouse.x - props.position.x + half_size);
+				let pixel_y = Math.floor(mouse.y - props.position.y + half_size);
 				if (pixel_x < 0.0
 					|| pixel_x >= size
 					|| pixel_y < 0.0
@@ -644,16 +708,19 @@ function is_triggered(state, i, trigger, game_data) {
 				} else {
 					let bank = props.art.bank_index;
 					if (bank in game_data.collision_data) {
-						let index = pixel_y * size + pixel_x;
+						let index = Math.floor(pixel_y * size + pixel_x);
 						let data = game_data.collision_data[bank];
-						return data[index * COLOUR_BYTES_COUNT + 3] != 0;
+						let alpha = data[index * COLOUR_BYTES_COUNT + 3];
+						console.assert(alpha !== undefined);
+						return alpha != 0;
 					}
 				}
 			}
 			return false;
 		}
 		case Trigger.TimeExact: {
-			return trigger.when * 15 === state.frame;
+			let when = time_with_end(trigger.when);
+			return when * 15 === state.frame;
 		}
 		case Trigger.TimeRandom: {
 			let is_quarter = state.frame % 15 === 0;
@@ -661,16 +728,10 @@ function is_triggered(state, i, trigger, game_data) {
 				return false;
 			} else if (is_quarter) {
 				let start = trigger.start;
-				let end = trigger.end;
-				if (trigger.end === Time.End) {
-					if (game_data.length === Length.Short) {
-						end = 32;
-					} else {
-						end = 64;
-					}
-				}
+				let end = time_with_end(trigger.end);
 				let quarter = Math.floor(state.frame / 15);
-				let triggered = random_in_range(Math.max(start, quarter), end + 1) === quarter;
+				let r = random_int_in_range(Math.max(start, quarter), end + 1);
+				let triggered = r === quarter;
 				if (triggered) {
 					props.done_time_triggers.push(trigger);
 				}
@@ -691,17 +752,18 @@ function is_triggered(state, i, trigger, game_data) {
 					&& props.position.y - half_size < area.max.y
 					&& props.position.y + half_size > area.min.y)
 				{
-					for (let x = area.min.x; x < area.max.x; x++) {
+					location_loop: for (let x = area.min.x; x < area.max.x; x++) {
 						for (let y = area.min.y; y < area.max.y; y++) {
-							let pixel_x = x - props.position.x + half_size;
-							let pixel_y = y - props.position.y + half_size;
+							let pixel_x = Math.floor(x - props.position.x + half_size);
+							let pixel_y = Math.floor(y - props.position.y + half_size);
 							let bank = props.art.bank_index;
 							if (bank in game_data.collision_data) {
-								let index = pixel_y * size + pixel_x;
+								let index = Math.floor(pixel_y * size + pixel_x);
 								let data = game_data.collision_data[bank];
-								if (data[index * COLOUR_BYTES_COUNT + 3] != 0) {
+								let alpha = data[index * COLOUR_BYTES_COUNT + 3];
+								if (alpha !== 0 && alpha !== undefined) {
 									collided = true;
-									break;
+									break location_loop;
 								}
 							}
 						}
@@ -743,25 +805,35 @@ function is_triggered(state, i, trigger, game_data) {
 					},
 				};
 				
-				for (let x = common_area.min.x; x <= common_area.max.x; x++) {
-					for (let y = common_area.min.y; y <= common_area.max.y; y++) {
+				
+				let bank = props.art.bank_index;
+				let other_bank = other_props.art.bank_index;
+				let other_data = game_data.collision_data[other_bank];
+				
+				object_loop: for (let x = common_area.min.x; x < common_area.max.x; x++) {
+					for (let y = common_area.min.y; y < common_area.max.y; y++) {
 						// TODO: Deduplicate
 						let pixel_x = x - Math.floor(props.position.x) + half_size;
 						let pixel_y = y - Math.floor(props.position.y) + half_size;
 						let other_pixel_x = x - Math.floor(other_props.position.x) + other_half_size;
 						let other_pixel_y = y - Math.floor(other_props.position.y) + other_half_size;
-						let bank = props.art.bank_index;
-						let other_bank = other_props.art.bank_index;
+						if (pixel_y >= size || other_pixel_y >= other_size) {
+							continue;
+						}
 						if (bank in game_data.collision_data && other_bank in game_data.collision_data) {
-							let index = pixel_y * size + pixel_x;
+							let index = Math.floor(pixel_y * size + pixel_x);
 							let data = game_data.collision_data[bank];
-							let pixel = data[index * COLOUR_BYTES_COUNT + 3] != 0;
-							let other_index = other_pixel_y * size + other_pixel_x;
+							let alpha = data[index * COLOUR_BYTES_COUNT + 3];
+							//console.assert(alpha !== undefined);
+							let pixel = alpha != 0;
+							let other_index = Math.floor(other_pixel_y * other_size + other_pixel_x);
 							let other_data = game_data.collision_data[other_bank];
-							let other_pixel = other_data[other_index * COLOUR_BYTES_COUNT + 3] != 0;
+							let other_alpha = other_data[other_index * COLOUR_BYTES_COUNT + 3];
+							let other_pixel = other_alpha != 0;
+							//console.assert(other_alpha !== undefined);
 							if (pixel && other_pixel) {
 								collided = true;
-								break;
+								break object_loop;
 							}
 						}
 					}
@@ -964,13 +1036,12 @@ function apply_action(state, i, action, game_data) {
 					} else if (roam === Roam.Reflect) {
 						if (area.min.x < area.max.x && area.min.y < area.max.y) {
 							let angle = random_in_range(0, Math.PI * 2);
-							velocity = { x: speed * Math.cos(angle), y: speed & Math.sin(angle) };
+							velocity = { x: speed * Math.cos(angle), y: speed * Math.sin(angle) };
 						} else if (area.min.x > area.max.x) {
 							velocity = { x: 0, y: speed };
 						} else {
 							velocity = { x: speed, y: 0 };
 						}
-						
 						travel = { tag, roam, area, speed, overlap, velocity };
 					} else if (roam === Roam.Bounce) {
 						let frames_in_bounce = 60 * value_from_speed(Speed.Normal) / speed;
@@ -979,21 +1050,26 @@ function apply_action(state, i, action, game_data) {
 							x: 0,
 							y: 2 * (area.min.y - props.position.y) / frames_in_bounce
 						};
-						travel = { tag, roam, area, speed, overlap, velocity, acceleration, frames_in_bounce };
+						let bounce_direction = random_in_array([BounceDirection.Left, BounceDirection.Right]);
+						if (props.travel.tag === ActiveTravel.GoStraight) {
+							velocity = props.travel.velocity;
+							bounce_direction = BounceDirection.None;
+						}
+						travel = { tag, roam, area, speed, overlap, velocity, acceleration, frames_in_bounce, bounce_direction };
 					}
 					props.travel = travel;
 					return;
 				}
 				case Travel.Swap: {
 					let temp = clone_position(props.position);
-					props.position = clone_position(state.properties[action.index]);
+					props.position = clone_position(state.properties[action.index].position);
 					state.properties[action.index].position = temp;
 					return;
 				}
 				case Travel.Target: {
 					let index = action.index;
 					let offset = action.offset;
-					let speed = value_from_speed(speed);
+					let speed = value_from_speed(action.speed);
 					props.travel = { tag: ActiveTravel.GoToObject, index, offset, speed };
 					return;
 				}
@@ -1017,6 +1093,7 @@ function apply_action(state, i, action, game_data) {
 			console.log('Lose Action Applied. win_status before: {:?}', state.win_status);
 			if (state.win_status != GameCondition.Win
 				&& state.win_status != GameCondition.Loss
+				&& state.win_status != GameCondition.HasBeenLost
 				&& state.win_status != GameCondition.HasBeenWon)
 			{
 				random_in_array(lose_sounds).play();
@@ -1033,9 +1110,9 @@ function apply_action(state, i, action, game_data) {
 			let art = game_data.objects[i].art[action.index];
 			let bank = art.bank[0];
 			props.art.bank_index = bank;
-			props.animation_index = 0;
-			props.finished_playing = false;
-			props.time_to_next_change = animation_time_from_speed(action.speed);
+			props.art.animation_index = 0;
+			props.art.finished_playing = false;
+			props.art.time_to_next_change = animation_time_from_speed(action.speed);
 			props.art.speed = action.speed;
 			props.art.style = action.style;
 			return;
@@ -1056,10 +1133,23 @@ function apply_action(state, i, action, game_data) {
 	}
 }
 
-function runFrame(game_data, state, assets) {
+function run_frame(game_data, state, assets) {
 	if (game_data.id !== game_id) {
 		return;
 	}
+	
+	let frame_delay = 1000 / 60;
+	if (state.time > state.frame * frame_delay) {
+		update_game(game_data, state, assets);
+	}
+
+	requestAnimationFrame(time => {
+		state.time += time;
+		run_frame(game_data, state, assets);
+	})
+}
+
+function update_game(game_data, state, assets) {
 	let old_win_status = state.win_status;
 	let triggered_actions = [];
 	
@@ -1141,7 +1231,7 @@ function runFrame(game_data, state, assets) {
 			
 			let go_to = (props, position) => {
 				let target_vector = { x: position.x - props.position.x, y: position.y - props.position.y };
-				let d = Math.sqrt(Math.pow(target_vector.x) + Math.pow(target_vector.y));
+				let d = Math.sqrt(Math.pow(target_vector.x, 2) + Math.pow(target_vector.y, 2));
 				let velocity = {
 					x: target_vector.x / d * travel.speed,
 					y: target_vector.y / d * travel.speed
@@ -1175,6 +1265,8 @@ function runFrame(game_data, state, assets) {
 					position.x += travel.offset.x;
 					position.y += travel.offset.y;
 					go_to(props, position);
+					//if (game_data.objects[travel.index] === ...start_location.index) {
+					//}
 					break;
 				}
 				case ActiveTravel.AttachTo: {
@@ -1185,21 +1277,36 @@ function runFrame(game_data, state, assets) {
 					break;
 				}
 				case ActiveTravel.Roam: {
+					let area = travel.area;
+					let centre = { x: (area.min.x + area.max.x) / 2, y: (area.min.y + area.max.y) / 2 };
+					let is_position_in_area = (position, area) => {
+						return position.x >= area.min.x && position.x <= area.max.x
+							&& position.y >= area.min.y && position.y <= area.max.y;
+					};
 					if (travel.roam === Roam.Wiggle) {
-						let direction = random_in_array(possible_directions);
-						let velocity = velocity_from_direction(direction, travel.speed);
-						props.position.x += velocity.x;
-						props.position.y += velocity.y;
-					} else if (travel.roam === Roam.Insect) {
-						const CHANGE_DIRECTION_PROBABILTY = 0.1;
-						if (random_in_range(0, 1) < CHANGE_DIRECTION_PROBABILTY) {
+						if (is_position_in_area(props.position, area)) {
 							let direction = random_in_array(possible_directions);
-							travel.velocity = velocity_from_direction(direction, travel.speed);
+							let velocity = velocity_from_direction(direction, travel.speed);
+							
+							props.position.x += velocity.x;
+							props.position.y += velocity.y;
+						} else {
+							go_to(props, centre);
 						}
-						props.position.x += travel.velocity.x;
-						props.position.y += travel.velocity.y;
+						
+					} else if (travel.roam === Roam.Insect) {
+						if (is_position_in_area(props.position, area)) {
+							const CHANGE_DIRECTION_PROBABILTY = 0.1;
+							if (random_in_range(0, 1) < CHANGE_DIRECTION_PROBABILTY) {
+								let direction = random_in_array(possible_directions);
+								travel.velocity = velocity_from_direction(direction, travel.speed);
+							}
+							props.position.x += travel.velocity.x;
+							props.position.y += travel.velocity.y;
+						} else {
+							go_to(props, centre);
+						}
 					} else if (travel.roam === Roam.Reflect) {
-						let area = travel.area;
 						// TODO: Subtract size from area
 						if (props.position.x + travel.velocity.x < area.min.x) {
 							travel.velocity.x = Math.abs(travel.velocity.x);
@@ -1216,15 +1323,33 @@ function runFrame(game_data, state, assets) {
 						props.position.x += travel.velocity.x;
 						props.position.y += travel.velocity.y;
 					} else if (travel.roam === Roam.Bounce) {
-						let area = travel.area;
-						if (props.position.y < area.min.y && travel.velocity.y < 0.0) {
-							travel.velocity.y = 0.0;
-						}
-						if (props.position.y < area.max.y) {
+						if (props.position.y < area.min.y) {
+							// TODO: Why is abs necessary?
+							travel.velocity.y += Math.abs(travel.acceleration);
+						} else if (props.position.y < area.max.y) {
 							travel.velocity.y += travel.acceleration;
 						} else if (props.position.y > area.max.y) {
 							travel.velocity.y = -travel.acceleration * travel.frames_in_bounce;
 						}
+						if (props.position.x > area.max.x) {
+							travel.direction = BounceDirection.Left;
+						} else if (props.position.x < area.min.x) {
+							travel.direction = BounceDirection.Right;
+						}
+						if (area.min.x >= area.max.x) {
+							travel.velocity.x = 0;
+						} else {
+							let horizontal_speed = travel.speed / 2.0;
+							if (travel.direction === BounceDirection.Left) {
+								travel.velocity.x = -horizontal_speed;
+							} else if (travel.direction === BounceDirection.Right) {
+								travel.velocity.x = horizontal_speed;
+							} else {
+								travel.velocity.x = 0;
+							}
+						}
+						props.position.x += travel.velocity.x;
+						props.position.y += travel.velocity.y;
 					}
 					break;
 				}
@@ -1290,6 +1415,26 @@ function runFrame(game_data, state, assets) {
 				}
 			}
 		}
+		
+		let end;
+		if (game_data.length === Length.Short) {
+			end = 32;
+		} else if (game_data.length === Length.Long) {
+			end = 64;
+		}
+		if (game_data.length !== Length.Boss) {
+			if (state.frame === end * 15) {
+				if (state.win_status != GameCondition.Win
+					&& state.win_status != GameCondition.Loss
+					&& state.win_status != GameCondition.HasBeenLost
+					&& state.win_status != GameCondition.HasBeenWon)
+				{
+					random_in_array(lose_sounds).play();
+					state.win_status = GameCondition.Loss;
+					console.log('Ran out of time');
+				}
+			}
+		}
 	}
 	
 	if (state.is_frozen) {
@@ -1315,13 +1460,9 @@ function runFrame(game_data, state, assets) {
 	}
 	
 	state.frame++;
-
-	requestAnimationFrame(() => {
-		runFrame(game_data, state, assets);
-	})
 }
 
-function dragOverHandler(event) {
+function drag_over_handler(event) {
 	console.log('Drag');
 	event.preventDefault();
 }

@@ -208,7 +208,8 @@ const ScreenEffect = {
 
 const Length = {
 	Short: 'Short',
-	Long: 'Long'
+	Long: 'Long',
+	Boss: 'Boss'
 };
 
 const StartLocation = {
@@ -229,10 +230,12 @@ class GameData {
 	}
 	
 	get length() {
-		if (has_bits_set(this.data[0xE600], 1)) {
+		if (second_hex_digit(this.data[0xE605]) === 0) {
+			return Length.Short;
+		} else if (second_hex_digit(this.data[0xE605]) === 1) {
 			return Length.Long;
 		} else {
-			return Length.Short;
+			return Length.Boss;
 		}
 	}
 	
@@ -316,7 +319,7 @@ class ArtData {
 	get is_active() {
 		let offset = this.offset;
 		let _byte = this.data[offset];
-		let has_valid_first_byte = _byte == 0x01 ||  _byte == 0x02 || _byte == 0x03 || _byte == 0x04;
+		let has_valid_first_byte = _byte == 0x00 || _byte == 0x01 ||  _byte == 0x02 || _byte == 0x03 || _byte == 0x04;
 		return has_valid_first_byte && this.count != 0;
 	}
 	
@@ -365,7 +368,7 @@ class AssemblyData {
 		let position = { x, y };
 		
 		let index = first_hex_digit(this.data[offset + 1]);
-		let style = style_from_number(this.data[offset + 2]);
+		let style = style_from_number(first_hex_digit(this.data[offset + 2]));
 		let speed = speed_from_number(first_hex_digit(this.data[offset + 3]));
 		let art = {
 			index,
@@ -702,7 +705,7 @@ class InstructionData {
 		} else if (action_tag == 0x11) {
 			return { tag: Action.Travel, travel: Travel.Stop };
 		} else if (action_tag == 0x21) {
-			let move_to_digit = this.data[offset + 1];
+			let move_to_digit = this.data[offset + 1] & 0x00011111;
 			
 			let position = common_position(this.data, offset + 2);
 			
@@ -767,12 +770,12 @@ class InstructionData {
 		} else if (action_tag == 0x51) {
 			let index = second_hex_digit(this.data[offset + 1]);
 			let position_slice = slice_from(this.data, offset + 1, 3);
-			let x = position_from_scambled_data(position_slice, 'DCBA----	--!!HGEF');
-			let y = position_from_scambled_data(position_slice, '--------	BA------	!!HGEFDC');
+			let x = position_from_scambled_data(position_slice, 'DCBA----	--!!HGFE');
+			let y = position_from_scambled_data(position_slice, '--------	BA------	!!HGFEDC');
 			let position = { x, y };
 			let speed_digit = this.data[offset + 4] & 0b00000111;
 			let speed = speed_from_number(speed_digit);
-			return { tag: Action.Target, index, offset: offset_from_position(position), speed };
+			return { tag: Action.Travel, travel: Travel.Target, index, offset: offset_from_position(position), speed };
 		} else if (action_tag == 0x02) {
 			return { tag: Action.Switch, switch_to: Switch.On };
 		} else if (action_tag == 0x12) {
