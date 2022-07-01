@@ -8,20 +8,6 @@ const INSTRUCTION_COUNT = 6;
 const TRIGGER_COUNT = 6;
 const ACTION_COUNT = 6;
 
-const bufferFromFile = (file) => {
-	return new Promise((resolve, reject) => {
-		let file_reader = new FileReader();
-		
-		file_reader.onload = () => {
-			resolve(file_reader.result);
-		};
-		
-		file_reader.onerror = reject;
-
-		file_reader.readAsArrayBuffer(file);
-	})
-};
-
 function slice_from(data, offset, length) {
 	return data.slice(offset, offset + length);
 }
@@ -361,10 +347,10 @@ class AssemblyData {
 		let offset = this.offset;
 		let length = 0x48;
 		
-		let position_slice = slice_from(this.data, offset + 14, 3);
+		let position_slice = slice_from(this.data, offset + 14, 8);
 		
-		let x = position_from_scambled_data(position_slice, 'GFEDCBA_	_____!!H');
-		let y = position_from_scambled_data(position_slice, '________	EDCBA___	___!!HGF');
+		let x = position_from_scambled_data(position_slice, 'GFEDCBA-	-----!IH');
+		let y = position_from_scambled_data(position_slice, '--------	EDCBA---	---!IHGF');
 		let position = { x, y };
 		
 		let index = first_hex_digit(this.data[offset + 1]);
@@ -375,6 +361,7 @@ class AssemblyData {
 			style,
 			speed
 		};
+		
 		let location;
 		if (this.data[offset + 12] == 0x07) {
 			location = { tag: StartLocation.Position, position };
@@ -388,8 +375,8 @@ class AssemblyData {
 			}
 			let position_slice = slice_from(this.data, offset + 16, 4);
 		
-			let x = position_from_scambled_data(position_slice, '_____CBA	_!!HGFED');
-			let y = position_from_scambled_data(position_slice, '________	A_______	!HGFEDCBA	1234567!');
+			let x = position_from_scambled_data(position_slice, '-----CBA	-!IHGFED');
+			let y = position_from_scambled_data(position_slice, '--------	A-------	IHGFEDCB	-------!');
 			let min = position;
 			let max = { x, y };
 			location = { tag: StartLocation.Area, area: { min, max }, overlap };
@@ -423,7 +410,11 @@ function position_from_scambled_data(data, unscramble_instructions) {
 			}
 			switch (split_instructions[byte_index][bit_index]) {
 				case '!': {
-					position -= 128;
+					position -= 512; 
+					break;
+				}
+				case 'I': {
+					position += 256;
 					break;
 				}
 				case 'H': {
@@ -495,9 +486,9 @@ class InstructionData {
 			return first_hex_digit(data[offset]) + (second_hex_digit(data[offset + 1]) & 0x0F) * 16;
 		};
 		
-		if (trigger_tag == 0x01) {
+		if ((trigger_tag & 0b00011111) == 0x01) {
 			return { tag: Trigger.TapThisObject };
-		} else if (trigger_tag == 0x11) {
+		} else if ((trigger_tag & 0b00011111) == 0x11) {
 			return { tag: Trigger.TapAnywhere };
 		} else if (trigger_tag == 0x02) {
 			let time;
@@ -526,12 +517,12 @@ class InstructionData {
 			let touches;
 			if (has_bits_set(this.data[offset + 6], 0x04)) {
 				let position_slice = slice_from(this.data, offset + 1, 3);
-				let x = position_from_scambled_data(position_slice, 'FEDCBA__	____!!HG');
-				let y = position_from_scambled_data(position_slice, '________	DCBA____	__!!HGFE');
+				let x = position_from_scambled_data(position_slice, 'FEDCBA__	____!IHG');
+				let y = position_from_scambled_data(position_slice, '________	DCBA____	__!IHGFE');
 				let min = { x, y };
 				position_slice = slice_from(this.data, offset + 3, 4);
-				x = position_from_scambled_data(position_slice, 'BA------	!!HGFEDC');
-				y = position_from_scambled_data(position_slice, '--------	--------	HGFEDCBA	------!!');
+				x = position_from_scambled_data(position_slice, 'BA------	!IHGFEDC');
+				y = position_from_scambled_data(position_slice, '--------	--------	HGFEDCBA	------!I');
 				let max = { x, y };
 				touches = { what: TouchesWhat.Location, area: { min, max }};
 			} else {
@@ -617,8 +608,8 @@ class InstructionData {
 		
 		let common_position = (data, offset) => {
 			let position_slice = slice_from(data, offset, 4);
-			let x = position_from_scambled_data(position_slice, 'BA000000	!!HGFEDC');
-			let y = position_from_scambled_data(position_slice, '--------	--------	HGFEDCBA	------!!');
+			let x = position_from_scambled_data(position_slice, 'BA000000	!IHGFEDC');
+			let y = position_from_scambled_data(position_slice, '--------	--------	HGFEDCBA	------!I');
 			return { x, y };
 		};
 		
@@ -634,8 +625,8 @@ class InstructionData {
 			//let speed = speed_from_number(speed_digit);
 			
 			let position_slice = slice_from(this.data, offset + 2, 3);
-			let x = position_from_scambled_data(position_slice, 'HGFEDCBA	------!!');
-			let y = position_from_scambled_data(position_slice, '--------	FEDCBA--    ----!!HG');
+			let x = position_from_scambled_data(position_slice, 'HGFEDCBA	------!I');
+			let y = position_from_scambled_data(position_slice, '--------	FEDCBA--	----!IHG');
 			let position = { x, y };
 			
 			let from;
@@ -711,13 +702,13 @@ class InstructionData {
 			
 			if (move_to_digit == 0x00) {
 				return { tag: Action.Travel, travel: Travel.JumpToPosition, position };
-			} else if (move_to_digit == 0x01) {
+			} else if (second_hex_digit(move_to_digit) == 0x01) {
 				let index = (this.data[offset + 2] >> 2) & 0x0F;
 				return { tag: Action.Travel, travel: Travel.JumpToObject, index, offset: offset_from_position(position) };
 			} else {
 				let position_slice = slice_from(this.data, offset + 5, 3);
-				let x = position_from_scambled_data(position_slice, 'FEDCBA--	----!!HG');
-				let y = position_from_scambled_data(position_slice, '--------	DCBA----	--!!HGFE');
+				let x = position_from_scambled_data(position_slice, 'FEDCBA--	----!IHG');
+				let y = position_from_scambled_data(position_slice, '--------	DCBA----	--!IHGFE');
 				let max = { x, y };
 				let area = { min: position, max };
 				let overlap = first_hex_digit(this.data[offset + 1]) == 1 ? Overlap.Anywhere : Overlap.TryNotToOverlap;
@@ -728,12 +719,12 @@ class InstructionData {
 			return { tag: Action.Travel, travel: Travel.Swap, index };
 		} else if (action_tag == 0x41) {
 			let position_slice = slice_from(this.data, offset + 1, 4);
-			let x = position_from_scambled_data(position_slice, 'A-------	!HGFEDCB	-------!');
-			let y = position_from_scambled_data(position_slice, '--------	--------	GFEDCBA-	-----!!H');
+			let x = position_from_scambled_data(position_slice, 'A-------	IHGFEDCB	-------!');
+			let y = position_from_scambled_data(position_slice, '--------	--------	GFEDCBA-	-----!IH');
 			let min = { x, y };
 			position_slice = slice_from(this.data, offset + 4, 3);
-			x = position_from_scambled_data(position_slice, 'EDBCA---	---!!HGF');
-			y = position_from_scambled_data(position_slice, '--------	CBA-----	-!!HGFED');
+			x = position_from_scambled_data(position_slice, 'EDBCA---	---!IHGF');
+			y = position_from_scambled_data(position_slice, '--------	CBA-----	-!IHGFED');
 			let max = { x, y };
 			let area = { min, max };
 			let roam_type_digit = this.data[offset + 1] % 4;
@@ -770,8 +761,8 @@ class InstructionData {
 		} else if (action_tag == 0x51) {
 			let index = second_hex_digit(this.data[offset + 1]);
 			let position_slice = slice_from(this.data, offset + 1, 3);
-			let x = position_from_scambled_data(position_slice, 'DCBA----	--!!HGFE');
-			let y = position_from_scambled_data(position_slice, '--------	BA------	!!HGFEDC');
+			let x = position_from_scambled_data(position_slice, 'DCBA----	--!IHGFE');
+			let y = position_from_scambled_data(position_slice, '--------	BA------	!IHGFEDC');
 			let position = { x, y };
 			let speed_digit = this.data[offset + 4] & 0b00000111;
 			let speed = speed_from_number(speed_digit);
@@ -780,7 +771,7 @@ class InstructionData {
 			return { tag: Action.Switch, switch_to: Switch.On };
 		} else if (action_tag == 0x12) {
 			return { tag: Action.Switch, switch_to: Switch.Off };
-		} else if (action_tag == 0x03) {
+		} else if (second_hex_digit(action_tag) == 0x03) {
 			return { tag: Action.Lose };
 		} else if (action_tag == 0x04) {
 			let index = first_hex_digit(this.data[offset + 1]);
@@ -788,7 +779,7 @@ class InstructionData {
 			let speed = speed_from_number(first_hex_digit(this.data[offset + 3]));
 			return { tag: Action.ChangeArt, index, style, speed };
 		} else if (action_tag == 0x14) {
-			return { tag: Action.FinishesPlaying };
+			return { tag: Action.StopPlaying };
 		}
 		else if (second_hex_digit(this.data[offset]) == 5) {
 			// TODO:

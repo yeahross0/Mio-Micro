@@ -62,19 +62,18 @@
    - if value = 0x97: Area
    - if the 4th bit of value is set: Another Object
  - the position data starts from `offset + 14`
-   - it uses 8 bits to store the number plus 2 bits for the sign
+   - it stores each number as a ten-bit two's complement integer
+   - the bits for the number are stored across  two or three bytes
    - the order the bits are in for the position are different across the file
-   - the x-coordinate of the position is stored as `GFEDCBA_	-----!!H`
-     - where { A, B, C, D, E, F, G, H } represents { 1, 2, 4, 8, 16, 32, 64, 128 } if they are set
-     - if the `!` values are set the number is negative and you need to subtract 256
-     - the `!` seem to always be set in pairs
-   - the y-coordinate of the position is stored as `--------	EDCBA---	---!!HGF` from the same offset
+   - the x-coordinate of the position is stored as `GFEDCBA_	-----!IH`
+     - where { A, B, C, D, E, F, G, H, I, ! } represents { 1, 2, 4, 8, 16, 32, 64, 128, 256, -512 } if they are set
+   - the y-coordinate of the position is stored as `--------	EDCBA---	---!IHGF` from the same offset
 
 ## Area - Location
 
  - the end position starts from `offset + 16`
    - x: `-----CBA     -!!HGFED`
-   - y: `--------     A-------	!HGFEDCBA	1234567!`
+   - y: `--------     A-------	IHGFEDCBA	-------!`
  - if data[offset + 13] = 0x04: Try Not To Overlap
  - else: Anywhere
 

@@ -254,6 +254,20 @@ window.addEventListener("keydown", event => {
   }
 }, true);
 
+const bufferFromFile = (file) => {
+	return new Promise((resolve, reject) => {
+		let file_reader = new FileReader();
+		
+		file_reader.onload = () => {
+			resolve(file_reader.result);
+		};
+		
+		file_reader.onerror = reject;
+
+		file_reader.readAsArrayBuffer(file);
+	})
+};
+
 async function drop_handler(event) {
 	console.log('File(s) dropped');
 
@@ -752,10 +766,13 @@ function is_triggered(state, i, trigger, game_data) {
 					&& props.position.y - half_size < area.max.y
 					&& props.position.y + half_size > area.min.y)
 				{
-					location_loop: for (let x = area.min.x; x < area.max.x; x++) {
-						for (let y = area.min.y; y < area.max.y; y++) {
+					location_loop: for (let x = area.min.x; x <= area.max.x; x++) {
+						for (let y = area.min.y; y <= area.max.y; y++) {
 							let pixel_x = Math.floor(x - props.position.x + half_size);
 							let pixel_y = Math.floor(y - props.position.y + half_size);
+							if (pixel_x < 0 || pixel_x >= size || pixel_y < 0 || pixel_y > size) {
+								continue;
+							}
 							let bank = props.art.bank_index;
 							if (bank in game_data.collision_data) {
 								let index = Math.floor(pixel_y * size + pixel_x);
@@ -817,7 +834,10 @@ function is_triggered(state, i, trigger, game_data) {
 						let pixel_y = y - Math.floor(props.position.y) + half_size;
 						let other_pixel_x = x - Math.floor(other_props.position.x) + other_half_size;
 						let other_pixel_y = y - Math.floor(other_props.position.y) + other_half_size;
-						if (pixel_y >= size || other_pixel_y >= other_size) {
+						if (pixel_x < 0 || pixel_x >= size ||
+							other_pixel_x < 0 || other_pixel_x >= other_size ||
+							pixel_y < 0 || pixel_y >= size ||
+							other_pixel_y < 0 || other_pixel_y >= other_size) {
 							continue;
 						}
 						if (bank in game_data.collision_data && other_bank in game_data.collision_data) {
@@ -969,13 +989,13 @@ function apply_action(state, i, action, game_data) {
 		case Action.Travel: {
 			switch (action.travel) {
 				case Travel.GoStraight: {
-					if (action.from === FromLocation.AnotherPosition) {
-						props.position = clone_position(action.position);
-					} else if (action.from === FromLocation.AnotherObject) {
+					if (action.from.tag === FromLocation.AnotherPosition) {
+						props.position = clone_position(action.from.position);
+					} else if (action.from.tag === FromLocation.AnotherObject) {
 						// TODO: Is this done from the position at the start of the frame?
-						props.position = clone_position(state.properties[action.index].position);
-						props.position.x += action.offset.x;
-						props.position.y += action.offset.y;
+						props.position = clone_position(state.properties[action.from.index].position);
+						props.position.x += action.from.offset.x;
+						props.position.y += action.from.offset.y;
 					}
 					let speed = value_from_speed(action.speed);
 					let travel;
@@ -1174,7 +1194,8 @@ function update_game(game_data, state, assets) {
 			if (game_data.objects[i] === null) continue;
 			let object = game_data.objects[i];
 			for (let ins = 0; ins < object.instructions.length; ins++) {
-				let triggered = object.instructions[ins].triggers.every(trigger => is_triggered(state, i, trigger, game_data));
+				// To avoid short-circuiting as game logic requires collision checking for touches trigger
+				let triggered = object.instructions[ins].triggers.map(trigger => is_triggered(state, i, trigger, game_data)).every(result => result === true);
 				if (triggered) {
 					let actions = object.instructions[ins].actions;
 					triggered_actions[i] = triggered_actions[i].concat(actions);
@@ -1455,7 +1476,7 @@ function update_game(game_data, state, assets) {
 			let bank = props.art.bank_index;
 			let image = assets.image_data[bank];
 			let position = props.position;
-			context.drawImage(image, position.x - half_size, position.y - half_size);
+			context.drawImage(image, Math.floor(position.x - half_size), Math.floor(position.y - half_size));
 		}
 	}
 	
