@@ -486,10 +486,10 @@ class InstructionData {
 			return first_hex_digit(data[offset]) + (second_hex_digit(data[offset + 1]) & 0x0F) * 16;
 		};
 		
-		if ((trigger_tag & 0b00011111) == 0x01) {
-			return { tag: Trigger.TapThisObject };
-		} else if ((trigger_tag & 0b00011111) == 0x11) {
+		if (trigger_tag == 0x11) {
 			return { tag: Trigger.TapAnywhere };
+		} else if (second_hex_digit(trigger_tag) == 0x01) {
+			return { tag: Trigger.TapThisObject };
 		} else if (trigger_tag == 0x02) {
 			let time;
 			if (this.data[offset + 2] == 0x14) {
@@ -630,7 +630,8 @@ class InstructionData {
 			let position = { x, y };
 			
 			let from;
-			if (second_hex_digit(this.data[offset + 1]) == 0) {
+			// TODO: do & 0x00000111 or something
+			if (second_hex_digit(this.data[offset + 1]) == 0 || second_hex_digit(this.data[offset + 1]) == 4) {
 				from = { tag: FromLocation.Current };
 			} else if (second_hex_digit(this.data[offset + 1]) == 1) {
 				from = { tag: FromLocation.AnotherPosition, position };
@@ -638,7 +639,7 @@ class InstructionData {
 				let index = first_hex_digit(this.data[offset + 1]);
 				from = { tag: FromLocation.AnotherObject, index, offset: offset_from_position(position) };
 			} else {
-				console.warn('Unreachable FromLocation');
+				console.warn('Unreachable FromLocation', this.data[offset + 1]);
 			}
 			
 			let direction_digit = this.data[offset + 4];
@@ -750,12 +751,18 @@ class InstructionData {
 					console.warn('Unreachable Roam');
 			}
 			let overlap;
-			if (has_bits_set(this.data[offset + 1], 0x08)) {
+
+			if (has_bits_set(this.data[offset + 1], 0x10)) {
 				overlap = Overlap.TryNotToOverlap;
 			} else {
 				overlap = Overlap.Anywhere;
 			}
-			let speed_digit = (this.data[offset + 6] >> 7) + (this.data[offset + 7] & 0x01) * 2;
+			/*if (second_hex_digit(this.data[offset + 1] === 0)) {
+				overlap = Overlap.Anywhere;
+			} else {
+				overlap = Overlap.TryNotToOverlap;
+			}*/
+			let speed_digit = (this.data[offset + 6] >> 7) + (this.data[offset + 7] & 0x03) * 2;
 			let speed = speed_from_number(speed_digit);
 			return { tag: Action.Travel, travel: Travel.Roam, roam, area, overlap, speed };
 		} else if (action_tag == 0x51) {
