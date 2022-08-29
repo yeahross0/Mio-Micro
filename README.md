@@ -109,4 +109,4 @@ A parser that can convert a binary mio file to JSON. A simple example JSON resul
 ## Player
 
 A rough prototype mio file player so you can see if the parser is outputting sensible values.
-Music, sound effects and some AI functionality has not been implemented yet.
+Music and some AI functionality has not been implemented yet.
