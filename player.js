@@ -229,16 +229,16 @@ let fontBitmap = new Image();
 fontBitmap.src = 'images/miofont.png';
 
 fontBitmap.onload = () => {
-    console.debug('font bitmap loaded')
+	console.debug('font bitmap loaded')
 }
 
 let drawText = (text, size = 16) => {
 	let gradient = context.createLinearGradient(0, 0, 1, 100);
 	gradient.addColorStop(0, 'white');
 	gradient.addColorStop(0.638, 'white');
-    gradient.addColorStop(0.638, '#D6D6D6');
+	gradient.addColorStop(0.638, '#D6D6D6');
 	gradient.addColorStop(0.65, '#D6D6D6');
-    gradient.addColorStop(0.65, '#B5B5B5');
+	gradient.addColorStop(0.65, '#B5B5B5');
 
 	/*context.font = size + 'px warioware-diy-ds-microgame-font';
 	context.lineWidth = 2;
@@ -310,7 +310,7 @@ let drawText = (text, size = 16) => {
 			['£']: 176,
 			['€']: 177,
 			['܀']: 1,
-			['܁'] :2,
+			['܁']: 2,
 			['܂']: 3,
 			['܃']: 4,
 			['܄']: 5,
@@ -344,7 +344,7 @@ let drawText = (text, size = 16) => {
 		for (let i = 0; i < text.length; i++) {
 			let letter = text[i];
 			let letterWidth = letterSpacing[letter] || w;
-			
+
 			widthInPixels += letterWidth;
 		}
 
@@ -359,7 +359,7 @@ let drawText = (text, size = 16) => {
 			let bitmapY = Math.floor(bitmapIndex / 16) * h;
 
 			let args = [fontBitmap, bitmapX, bitmapY, w - 1, h - 1, offsetSoFar, BACKGROUND_HEIGHT / 2 - h + 5, w, h];
-			
+
 			context.drawImage(...args);
 
 			let letterWidth = letterSpacing[text[i]] || w;
@@ -1279,7 +1279,7 @@ function hasHitTime(state, gameLength, trigger) {
 }
 
 function hasHitRandomTime(state, gameLength, trigger) {
-    let fifteenth = state.frame % 15;
+	let fifteenth = state.frame % 15;
 	let isQuarter = fifteenth === 0 || (fifteenth % 8 === 0);
 	if (trigger.hasBeenTriggered) {
 		return false;
@@ -1724,7 +1724,7 @@ function runFrame(gameData, state, assets) {
 			if (state.lastTimestamp === null) {
 				state.lastTimestamp = time;
 			}
-	
+
 			const MAX_PLAUSIBLE_DELTA = 50;
 			state.time += Math.min(time - state.lastTimestamp, MAX_PLAUSIBLE_DELTA);
 			state.lastTimestamp = time;
@@ -1826,11 +1826,11 @@ function moveObjects(state, gameData) {
 
 			if (t < props.travel.length - 1
 				&& (travel.tag === ActiveTravel.GoStraight
-				|| travel.tag === ActiveTravel.GoStraight
-				|| travel.tag === ActiveTravel.GoToPoint
-				|| travel.tag === ActiveTravel.GoToObject
-				|| travel.tag === ActiveTravel.Roam
-				|| travel.tag === ActiveTravel.Stop)) {
+					|| travel.tag === ActiveTravel.GoStraight
+					|| travel.tag === ActiveTravel.GoToPoint
+					|| travel.tag === ActiveTravel.GoToObject
+					|| travel.tag === ActiveTravel.Roam
+					|| travel.tag === ActiveTravel.Stop)) {
 				continue;
 			}
 
