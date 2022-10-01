@@ -1,6 +1,6 @@
 # mio-player
 
-Player for mio files. Files are loaded using the `mio-loader` package.
+Player for mio files. Files are loaded using the [mio-loader](https://www.npmjs.com/package/mio-loader) package.
 
 Documentation upcoming.
 
