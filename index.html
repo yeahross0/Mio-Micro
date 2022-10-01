@@ -108,6 +108,27 @@ fontBitmap.src = 'images/miofont.png';
 
 mioPlayer.fontBitmap = fontBitmap;
 
+
+function replayGame() {
+	mioPlayer.loadAndStart(mioData);
+}
+
+window.addEventListener('keydown', event => {
+	if (event.code === 'KeyR' && mioData !== null) {
+		replayGame();
+	}
+
+	if (event.code === 'KeyC') {
+		//mioPlayer.shouldShowCommand = !mioPlayer.shouldShowCommand;
+		mioPlayer.toggleShowCommand();
+	}
+
+	if (event.code === 'KeyI' || event.code === 'KeyL') {
+		//mioPlayer.isInfiniteMode = !mioPlayer.isInfiniteMode;
+		mioPlayer.toggleInfiniteMode();
+	}
+}, true);
+
 window.addEventListener('resize', handleWindowResize, false)
 function handleWindowResize(event) {
 	scale = windowScale(window);

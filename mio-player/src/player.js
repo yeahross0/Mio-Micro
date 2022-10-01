@@ -103,6 +103,10 @@ class Player {
 
 		console.log(properties);
 
+		console.debug(JSON.stringify(
+			{ length, objects, winConditions, layers, command })
+		)
+
 		requestAnimationFrame(() => {
 
 			if (this.shouldShowCommand) {
@@ -841,26 +845,6 @@ let mouse = {
 	y: 0,
 	state: ButtonState.Up,
 };
-
-/*
-// TODO:
-function replayGame() {
-	loadAndStartGame(mioData);
-}
-
-window.addEventListener('keydown', event => {
-	if (event.code === 'KeyR' && mioData !== null) {
-		replayGame();
-	}
-
-	if (event.code === 'KeyC') {
-		shouldShowCommand = !shouldShowCommand;
-	}
-
-	if (event.code === 'KeyI' || event.code === 'KeyL') {
-		isInfiniteMode = !isInfiniteMode;
-	}
-}, true);*/
 
 const areaFromProperties = props => {
 	let size = props.size;
