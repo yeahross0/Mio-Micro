@@ -3,8 +3,9 @@
 <head>
     <meta charset='utf-8' />
     <title>Mio Micro</title>
-	<script type='text/javascript' src='loader.js'></script>
-	<script type='text/javascript' src='player.js'></script>
+	<!--<script type='text/javascript' src='loader.js'></script>-->
+	<!--<script type='text/javascript' src='player.js'></script>-->
+	<script type='text/javascript' src='mio-test/bundle.js'></script>
     <style>
     	* { padding: 0; margin: 0; }
     	canvas { background: #fff; display: block; margin: 0 auto; }
@@ -21,6 +22,43 @@ var mioData = null;
 var canvas = document.getElementById('canvas_game');
 var context = canvas.getContext('2d');
 
+document.addEventListener('mousemove', handleMouseMove, false);
+canvas.addEventListener('mousedown', handleMouseDown, false);
+document.addEventListener('mouseup', handleMouseUp, false);
+
+canvas.addEventListener('touchstart', handleTouchStart, false);
+document.addEventListener('touchend', handleTouchEnd, false);
+
+function handleMouseMove(event) {
+	if (typeof canvas !== 'undefined') {
+		mioPlayer.setStylusPosition(event.clientX, event.clientY);
+	}
+}
+
+function handleMouseDown(event) {
+	if (event.button === 0) {
+		mioPlayer.touchScreen();
+	}
+}
+
+function handleMouseUp(event) {
+	if (event.button === 0) {
+		mioPlayer.withdrawTouchFromScreen();
+	}
+}
+
+function handleTouchStart(event) {
+	if (typeof canvas !== 'undefined') {
+		var touch = event.touches[0] || event.changedTouches[0];
+		mioPlayer.setStylusPosition(touch.clientX, touch.clientY);
+	}
+	mioPlayer.touchScreen();
+}
+
+function handleTouchEnd() {
+	mioPlayer.withdrawTouchFromScreen();
+}
+
 let intro = new Image();
 intro.src = 'images/intro.png';
 
@@ -28,13 +66,52 @@ intro.onload = () => {
     context.drawImage(intro, 0, 0);
 }
 
+function windowSize(window) {
+	return [window.innerWidth, window.innerHeight];
+}
+
+function windowScale(window) {
+	let [width, height] = windowSize(window);
+	return Math.min(width / Mio.ORIGINAL_CANVAS_WIDTH, height / Mio.ORIGINAL_CANVAS_HEIGHT);
+}
+
+const mioPlayer = new window.Mio.Player(canvas, document);
+
 let scale = windowScale(window);
-scaleCanvas(scale);
+mioPlayer.scaleCanvas(scale);
+
+const loadSound = (name) => {
+	let audio = new Audio('audio/' + name + '.ogg');
+	audio.volume = 1;
+	return audio;
+};
+
+winSounds = [loadSound('win1'), loadSound('win2')];
+loseSounds = [loadSound('lose1'), loadSound('lose2')];
+
+let sounds = [];
+mioPlayer.soundNames.forEach(name => {
+	let audio = new Audio('audio/' + name + '.ogg');
+	audio.volume = 1;
+	sounds.push(audio);
+});
+mioPlayer.sounds = sounds;
+mioPlayer.winSounds = winSounds;
+mioPlayer.loseSounds = loseSounds;
+
+let fontBitmap = new Image();
+fontBitmap.src = 'images/miofont.png';
+
+/*fontBitmap.onload = () => {
+	console.debug('font bitmap loaded')
+}*/
+
+mioPlayer.fontBitmap = fontBitmap;
 
 window.addEventListener('resize', handleWindowResize, false)
 function handleWindowResize(event) {
 	scale = windowScale(window);
-	scaleCanvas(scale);
+	mioPlayer.scaleCanvas(scale);
 	if (mioData == null) {
 		context.drawImage(intro, 0, 0);
 	}
@@ -66,7 +143,7 @@ async function dropHandler(event) {
 				console.log('file: ', file.name);
 				let buffer = await bufferFromFile(file);
 				mioData = new Uint8Array(buffer);
-				loadAndStartGame(mioData);
+				mioPlayer.loadAndStart(mioData);
 			}
 			
 		}

@@ -1,0 +1,17 @@
+{
+  "name": "mio-player",
+  "version": "0.1.0",
+  "description": "Plays mio files",
+  "main": "src/player.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "author": "yeahross",
+  "license": "Apache-2.0",
+  "devDependencies": {
+    "eslint": "^8.24.0"
+  },
+  "dependencies": {
+    "mio-loader": "file:../mio-loader"
+  }
+}

@@ -1,0 +1,1 @@
+`browserify index.js -s MioPlayer -o bundle.js`
