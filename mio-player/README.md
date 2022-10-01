@@ -6,7 +6,7 @@ Documentation upcoming.
 
 ## Usage
 
-Initial example of usage:
+Rough example of usage:
 
 ```js
 const mioData = ...;
