@@ -9,6 +9,7 @@
   "author": "yeahross",
   "license": "Apache-2.0",
   "dependencies": {
-    "mio-player": "file:../mio-player"
+    "mio-player": "file:../mio-player",
+    "mio-midi": "file:../mio-midi"
   }
 }

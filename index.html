@@ -108,7 +108,6 @@ fontBitmap.src = 'images/miofont.png';
 
 mioPlayer.fontBitmap = fontBitmap;
 
-
 function replayGame() {
 	mioPlayer.loadAndStart(mioData);
 }
@@ -164,6 +163,7 @@ async function dropHandler(event) {
 				console.log('file: ', file.name);
 				let buffer = await bufferFromFile(file);
 				mioData = new Uint8Array(buffer);
+				let midiData = window.Mio.buildMidiFile(mioData);
 				mioPlayer.loadAndStart(mioData);
 			}
 			
