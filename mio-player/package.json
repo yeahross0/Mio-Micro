@@ -1,6 +1,6 @@
 {
   "name": "mio-player",
-  "version": "0.1.2",
+  "version": "0.2.0",
   "description": "Plays mio files",
   "main": "src/player.js",
   "scripts": {
