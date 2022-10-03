@@ -1,6 +1,6 @@
 {
   "name": "mio-midi",
-  "version": "0.2.0",
+  "version": "0.2.1",
   "description": "Loads MIDI data from mio files",
   "main": "src/midi.js",
   "scripts": {
@@ -9,7 +9,7 @@
   "author": "yeahross",
   "license": "Apache-2.0",
   "dependencies": {
-    "midi-writer-js": "git://github.com/yeahross0/MidiWriterJS#e89ac51"
+    "midi-writer-js": "git://github.com/yeahross0/MidiWriterJS#5159343"
   },
   "devDependencies": {
     "eslint": "^8.24.0"

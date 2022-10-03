@@ -114,7 +114,6 @@ const buildMidiFile = (mioData, loopTimes = 0) => {
 				if (note !== 255) {
 					let noteLength = (instrumentLengths[instrumentUsed] * 8);
 					let startTick = 32 * i + loopIter * 1024;
-					console.debug({ startTick });
 					if (noteLength + startTick > (1 + loopTimes) * 1024) {
 						noteLength = (1 + loopTimes) * 1024 - startTick;
 					}

@@ -1,4 +1,5 @@
 const Mio = require('mio-loader');
+const EventEmitter = require('events').EventEmitter;
 
 const ORIGINAL_CANVAS_WIDTH = 192;
 const ORIGINAL_CANVAS_HEIGHT = 128;
@@ -13,7 +14,7 @@ let silentMusicPlayer = {
 	hasTrackEnded: () => false,
 };
 
-class Player {
+class Player extends EventEmitter {
 	mouseDown = false;
 	_musicPlayer = silentMusicPlayer;
 	gameId = 0;
@@ -22,6 +23,8 @@ class Player {
 	isPaused = false;
 
 	constructor(canvas, document) {
+		super();
+
 		this.canvas = canvas;
 		this.context = canvas.getContext('2d');
 
@@ -75,6 +78,10 @@ class Player {
 		this.context.imageSmoothingEnabled = false;
 	}
 
+	stop() {
+		this.gameId++;
+	}
+	
 	loadAndStart(data) {
 		this.gameId++;
 		let gameData = new Mio.GameData(data);
@@ -103,15 +110,17 @@ class Player {
 
 		console.log(properties);
 
-		console.debug(JSON.stringify(
-			{ length, objects, winConditions, layers, command })
-		)
+		this.emit('loaded');
+
+		this._musicPlayer.playMusic();
 
 		requestAnimationFrame(() => {
 
 			if (this.shouldShowCommand) {
 				drawText(this.context, this._fontBitmap, command);
 			}
+
+			this.emit('playing');
 
 			this.runFrame(
 				{ id: this.gameId, length, objects, winConditions, layers, collisionData, command },
@@ -129,15 +138,24 @@ class Player {
 		} else if (gameData.length === Mio.Length.Long) {
 			end = 64;
 		}
+		let endFrame = typeof end !== 'undefined' ? end * 7.5 : undefined;
 		if (gameData.id !== this.gameId) {
 			return;
 		}
 
-		if (state.frame > end * 7.5 && !this.isInfiniteMode) {
+		const emitEndedEvent = () => {
+			if (!this.isPaused) {
+				this.emit('ended');
+			}
+		};
+		// TODO: Relies on number > undefined being false, change to something more obvious
+		if (state.frame > endFrame && !this.isInfiniteMode) {
+			emitEndedEvent();
 			this.isPaused = true;
 		} else if (gameData.length === Mio.Length.Boss) {
 			let hasConcluded = (state.winStatus === Mio.GameCondition.HasBeenWon || state.winStatus === Mio.GameCondition.HasBeenLost);
 			if (hasConcluded && state.frame % 240 === 0 && !this.isInfiniteMode) {
+				emitEndedEvent();
 				this.isPaused = true;
 			} else {
 				this.isPaused = false;
@@ -153,17 +171,13 @@ class Player {
 			this.context.fillStyle = "#88888844";
 			this.context.fillRect(0, 0, BACKGROUND_WIDTH, BACKGROUND_HEIGHT);
 		} else {
-			// TODO: Continue music?
 			if (state.time > state.frame * frameDelay) {
-				if (state.frame === 0) {
-					this._musicPlayer.playMusic();
-				}
-
 				if (this._musicPlayer.hasTrackEnded() && gameData.length === Mio.Length.Boss) {
 					this._musicPlayer.playMusic();
 				}
 
 				this.updateGame(gameData, state, assets);
+				this.emit('frameupdate', state.frame, endFrame);
 			}
 		}
 
@@ -269,6 +283,9 @@ const MAX_BEFORE_GAME_JUMP_ATTEMPTS = 18;
 const MAX_DURING_GAME_JUMP_ATTEMPTS = 6;
 
 let drawText = (context, fontBitmap, text, size = 16) => {
+	if (typeof fontBitmap === 'undefined') {
+		return;
+	}
 	let gradient = context.createLinearGradient(0, 0, 1, 100);
 	gradient.addColorStop(0, 'white');
 	gradient.addColorStop(0.6, 'white');
@@ -1427,6 +1444,7 @@ function applyAction(state, i, action, gameData, assets) {
 			) {
 				randomInArray(assets.loseSounds).play();
 				state.winStatus = Mio.GameCondition.Loss;
+				this.emit('lost');
 			}
 			return;
 		}
@@ -1955,6 +1973,7 @@ function winGameIfConditionsAreMet(state, gameData, oldWinStatus, winSounds) {
 				console.log('Game Won');
 				randomInArray(winSounds).play();
 				state.winStatus = Mio.GameCondition.Win;
+				this.emit('won');
 			}
 		}
 	}
@@ -1976,6 +1995,7 @@ function loseIfOutOfTime(state, gameData, loseSounds) {
 				randomInArray(loseSounds).play();
 				state.winStatus = Mio.GameCondition.Loss;
 				console.log('Ran out of time');
+				this.emit('lost');
 			}
 		}
 	}
