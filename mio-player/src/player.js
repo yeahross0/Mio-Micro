@@ -1366,8 +1366,8 @@ function roamTravel(action, state, props, collisionArea) {
 			let targetVector = { x: position.x - props.position.x, y: position.y - props.position.y };
 			let d = Math.sqrt(Math.pow(targetVector.x, 2) + Math.pow(targetVector.y, 2));
 			velocity = {
-				x: targetVector.x / d * speed / 2,
-				y: targetVector.y / d * speed
+				x: targetVector.x / d * lastTravel.speed,
+				y: targetVector.y / d * lastTravel.speed
 			};
 		} else if (lastTravel.tag === ActiveTravel.Roam && (lastTravel.roam === Mio.Roam.Bounce || lastTravel.roam === Mio.Roam.Reflect)) {
 			velocity = clonePosition(lastTravel.velocity);
@@ -1376,8 +1376,8 @@ function roamTravel(action, state, props, collisionArea) {
 			let targetVector = { x: position.x - props.position.x, y: position.y - props.position.y };
 			let d = Math.sqrt(Math.pow(targetVector.x, 2) + Math.pow(targetVector.y, 2));
 			velocity = {
-				x: targetVector.x / d * speed,
-				y: targetVector.y / d * speed
+				x: targetVector.x / d * lastTravel.speed,
+				y: targetVector.y / d * lastTravel.speed
 			};
 		}
 		travel = { tag, roam, area, speed, overlap, velocity, acceleration };
