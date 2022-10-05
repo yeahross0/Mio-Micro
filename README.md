@@ -6,6 +6,8 @@ This project can extract the AI data from mio files and attempt to play the game
 
 There are some notes on the file format in notes.md.
 
+Note: The [NpmModules](https://github.com/yeahross0/Mio-Micro/tree/NpmModules) branch is being more actively worked on atm. I'll make it the main branch when its ready.
+
 ## Parser
 
 A parser that can convert a binary mio file to JSON. A simple example JSON result:
@@ -13,23 +15,31 @@ A parser that can convert a binary mio file to JSON. A simple example JSON resul
 ```json
 {
     "length": "Short",
+    "command": "Poke!",
     "objects": [
         {
             "name": "LADYBIRD",
-            "sprite_size": 64,
+            "spriteSize": 64,
             "art": [
                 {
                     "name": "WIGGLE",
                     "bank": {
                         "0": 0,
                         "1": 16
+                    },
+                    "collisionArea": {
+                        "min": {
+                            "x": 8,
+                            "y": 3
+                        },
+                        "max": {
+                            "x": 58,
+                            "y": 56
+                        }
                     }
-                },
-                null,
-                null,
-                null
+                }
             ],
-            "start_instruction": {
+            "startInstruction": {
                 "art": {
                     "index": 0,
                     "style": "Loop",
@@ -65,43 +75,27 @@ A parser that can convert a binary mio file to JSON. A simple example JSON resul
                         },
                         {
                             "tag": "SoundEffect",
-                            "effect": 37
+                            "effect": 34
                         },
                         {
                             "tag": "Switch",
-                            "switch_to": "On"
+                            "switchTo": "On"
                         }
                     ]
                 }
             ]
-        },
-        null,
-        null,
-        null,
-        null,
-        null,
-        null,
-        null,
-        null,
-        null,
-        null,
-        null,
-        null,
-        null,
-        null
+        }
     ],
-    "win_conditions": [
+    "winConditions": [
         [
             {
                 "index": 0,
-                "switch_state": "On"
+                "switchState": "On"
             }
-        ],
-        [],
-        [],
-        [],
-        [],
-        []
+        ]
+    ],
+    "layers": [
+        0
     ]
 }
 ```
