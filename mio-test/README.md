@@ -1,1 +1,1 @@
-`browserify index.js -o bundle.js`
+browserify index.js -o bundle.js
