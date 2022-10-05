@@ -21,6 +21,7 @@ class Player extends EventEmitter {
 	shouldShowCommand = true;
 	isInfiniteMode = false;
 	isPaused = false;
+	playbackRate = 1;
 
 	constructor(canvas, document) {
 		super();
@@ -86,7 +87,7 @@ class Player extends EventEmitter {
 		this.gameId++;
 	}
 	
-	loadAndStart(data) {
+	loadAndStart(data, playbackRate = 1) {
 		this.gameId++;
 		let gameData = new Mio.GameData(data);
 		console.log(gameData.name);
@@ -120,6 +121,12 @@ class Player extends EventEmitter {
 
 		this._musicPlayer.playMusic();
 
+		this.playbackRate = playbackRate;
+		const setPlaybackRates = (sounds) => sounds.forEach(sound =>  sound.playbackRate = playbackRate);
+		setPlaybackRates(this._sounds);
+		setPlaybackRates(this._winSounds);
+		setPlaybackRates(this._loseSounds);
+
 		requestAnimationFrame(() => {
 
 			if (this.shouldShowCommand) {
@@ -134,6 +141,10 @@ class Player extends EventEmitter {
 				{ imageData, backgroundImage, sounds: this._sounds, winSounds: this._winSounds, loseSounds: this._loseSounds }
 			);
 		})
+	}
+
+	replay() {
+		this.loadAndStart(this._gameData.data, this.playbackRate);
 	}
 
 	runFrame(gameData, state, assets) {
@@ -201,7 +212,7 @@ class Player extends EventEmitter {
 				}
 
 				const MAX_PLAUSIBLE_DELTA = 50;
-				state.time += Math.min(time - state.lastTimestamp, MAX_PLAUSIBLE_DELTA);
+				state.time += Math.min(time - state.lastTimestamp, MAX_PLAUSIBLE_DELTA) * this.playbackRate;
 				state.lastTimestamp = time;
 			}
 			this.runFrame(gameData, state, assets);
