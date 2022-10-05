@@ -36,6 +36,10 @@ class Player extends EventEmitter {
 		return audioNames;
 	}
 
+	get gameData() {
+		return this._gameData;
+	}
+
 	set sounds(sounds) {
 		this._sounds = sounds;
 	}
@@ -110,6 +114,8 @@ class Player extends EventEmitter {
 
 		console.log(properties);
 
+		this._gameData = gameData;
+
 		this.emit('loaded');
 
 		this._musicPlayer.playMusic();
@@ -177,7 +183,12 @@ class Player extends EventEmitter {
 				}
 
 				this.updateGame(gameData, state, assets);
-				this.emit('frameupdate', state.frame, endFrame);
+				this.emit('frameupdate', state.frame - 1, endFrame);
+				if (state.winStatus === Mio.GameCondition.Win) {
+					this.emit('won');
+				} else if (state.winStatus === Mio.GameCondition.Loss) {
+					this.emit('lost');
+				}
 			}
 		}
 
@@ -1435,7 +1446,7 @@ function applyAction(state, i, action, gameData, assets) {
 			return;
 		}
 		case Mio.Action.Lose: {
-			console.log('Lose Mio.Action Applied. winStatus before: {:?}', state.winStatus);
+			console.log('Lose Action Applied. winStatus before: {:?}', state.winStatus);
 			if (
 				state.winStatus !== Mio.GameCondition.Win &&
 				state.winStatus !== Mio.GameCondition.Loss &&
@@ -1444,7 +1455,6 @@ function applyAction(state, i, action, gameData, assets) {
 			) {
 				randomInArray(assets.loseSounds).play();
 				state.winStatus = Mio.GameCondition.Loss;
-				this.emit('lost');
 			}
 			return;
 		}
@@ -1973,7 +1983,6 @@ function winGameIfConditionsAreMet(state, gameData, oldWinStatus, winSounds) {
 				console.log('Game Won');
 				randomInArray(winSounds).play();
 				state.winStatus = Mio.GameCondition.Win;
-				this.emit('won');
 			}
 		}
 	}
@@ -1995,7 +2004,6 @@ function loseIfOutOfTime(state, gameData, loseSounds) {
 				randomInArray(loseSounds).play();
 				state.winStatus = Mio.GameCondition.Loss;
 				console.log('Ran out of time');
-				this.emit('lost');
 			}
 		}
 	}
