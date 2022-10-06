@@ -57,6 +57,14 @@ class Player extends EventEmitter {
 		this._fontBitmap = fontBitmap;
 	}
 
+	set fontBitmapLatin(fontBitmap) {
+		this._fontBitmap = fontBitmap;
+	}
+
+	set fontBitmapJp(fontBitmap) {
+		this._fontBitmapJp = fontBitmap;
+	}
+
 	set musicPlayer(musicPlayer) {
 		this._musicPlayer = musicPlayer;
 	}
@@ -86,7 +94,7 @@ class Player extends EventEmitter {
 	stop() {
 		this.gameId++;
 	}
-	
+
 	loadAndStart(data, playbackRate = 1) {
 		this.gameId++;
 		let gameData = new Mio.GameData(data);
@@ -122,7 +130,7 @@ class Player extends EventEmitter {
 		this._musicPlayer.playMusic();
 
 		this.playbackRate = playbackRate;
-		const setPlaybackRates = (sounds) => sounds.forEach(sound =>  sound.playbackRate = playbackRate);
+		const setPlaybackRates = (sounds) => sounds.forEach(sound => sound.playbackRate = playbackRate);
 		setPlaybackRates(this._sounds);
 		setPlaybackRates(this._winSounds);
 		setPlaybackRates(this._loseSounds);
@@ -1355,6 +1363,7 @@ function roamTravel(action, state, props, collisionArea) {
 			velocity.x -= horizontalSpeed;
 		}
 
+		let calculateInitialVelocity = null;
 		if (lastTravel.tag === ActiveTravel.GoStraight) {
 			// TODO: Add velocity to GoToPoint to use here? or just calc now. and check if gotopoint is called same frame as bounce in game this affects before thought
 			//velocity.x = lastTravel.velocity.x;
@@ -1362,25 +1371,30 @@ function roamTravel(action, state, props, collisionArea) {
 			velocity = clonePosition(lastTravel.velocity);
 
 		} else if (lastTravel.tag === ActiveTravel.GoToPoint) {
-			let position = lastTravel.position;
-			let targetVector = { x: position.x - props.position.x, y: position.y - props.position.y };
-			let d = Math.sqrt(Math.pow(targetVector.x, 2) + Math.pow(targetVector.y, 2));
-			velocity = {
-				x: targetVector.x / d * lastTravel.speed,
-				y: targetVector.y / d * lastTravel.speed
-			};
+			// TODO: Deduplicate
+			calculateInitialVelocity = (currentPos) => {
+				let position = lastTravel.position;
+				let targetVector = { x: position.x - currentPos.x, y: position.y - currentPos.y };
+				let d = Math.sqrt(Math.pow(targetVector.x, 2) + Math.pow(targetVector.y, 2));
+				return {
+					x: targetVector.x / d * lastTravel.speed,
+					y: targetVector.y / d * lastTravel.speed
+				};
+			}
 		} else if (lastTravel.tag === ActiveTravel.Roam && (lastTravel.roam === Mio.Roam.Bounce || lastTravel.roam === Mio.Roam.Reflect)) {
 			velocity = clonePosition(lastTravel.velocity);
 		} else if (lastTravel.tag === ActiveTravel.GoToObject) {
-			let position = state.properties[lastTravel.index].position;
-			let targetVector = { x: position.x - props.position.x, y: position.y - props.position.y };
-			let d = Math.sqrt(Math.pow(targetVector.x, 2) + Math.pow(targetVector.y, 2));
-			velocity = {
-				x: targetVector.x / d * lastTravel.speed,
-				y: targetVector.y / d * lastTravel.speed
-			};
+			calculateInitialVelocity = (currentPos) => {
+				let position = state.properties[lastTravel.index].position;
+				let targetVector = { x: position.x - currentPos.x, y: position.y - currentPos.y };
+				let d = Math.sqrt(Math.pow(targetVector.x, 2) + Math.pow(targetVector.y, 2));
+				return {
+					x: targetVector.x / d * lastTravel.speed,
+					y: targetVector.y / d * lastTravel.speed
+				};
+			}
 		}
-		travel = { tag, roam, area, speed, overlap, velocity, acceleration };
+		travel = { tag, roam, area, speed, overlap, velocity, acceleration, calculateInitialVelocity };
 	}
 
 	return travel;
@@ -1857,6 +1871,10 @@ function moveObjects(state, gameData) {
 							travel.velocity = moveToward(props, centre);
 						}
 					} else if (travel.roam === Mio.Roam.Bounce) {
+						if (travel.calculateInitialVelocity !== null) {
+							travel.velocity = travel.calculateInitialVelocity(props.position);
+							travel.calculateInitialVelocity = null;
+						}
 						// TODO: Implement TryNotToOverlap (properly) for bounce
 						if (travel.overlap === Mio.Overlap.TryNotToOverlap) {
 							let touching = false;

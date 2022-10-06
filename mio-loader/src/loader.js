@@ -280,13 +280,7 @@ class GameData {
 	}
 
 	get length() {
-		if (secondHexDigit(this.data[0xE605]) === 0) {
-			return Length.Short;
-		} else if (secondHexDigit(this.data[0xE605]) === 1) {
-			return Length.Long;
-		} else {
-			return Length.Boss;
-		}
+		return gameLength(this.data);
 	}
 
 	object(index) {
@@ -305,6 +299,16 @@ class GameData {
 		}
 		let index = firstHexDigit(this.data[offset]);
 		return { index, switchState };
+	}
+}
+
+function gameLength(data) {
+	if (secondHexDigit(data[0xE605]) === 0) {
+		return Length.Short;
+	} else if (secondHexDigit(data[0xE605]) === 1) {
+		return Length.Long;
+	} else {
+		return Length.Boss;
 	}
 }
 
@@ -572,7 +576,8 @@ class InstructionData {
 		} else if (triggerTag === 0x12) {
 			let start = timeFromData(this.data, offset + 1);
 			let end;
-			if (secondHexDigit(this.data[offset + 3]) === 0x02) {
+			let endIndicator = gameLength(this.data) === Length.Long ? 0x04 : 0x02;
+			if (secondHexDigit(this.data[offset + 3]) === endIndicator) {
 				end = Time.End;
 			} else {
 				end = timeFromData(this.data, offset + 2);

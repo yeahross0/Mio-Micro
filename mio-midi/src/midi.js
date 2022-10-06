@@ -9,59 +9,31 @@ const SIMULTANEOUS_DRUMS = 4;
 const VOLUME_MULTIPLIER = 13;
 
 const notes = {
-	[0]: 'G3',
-	[1]: 'G#3',
-	[2]: 'A3',
-	[3]: 'A#3',
-	[4]: 'B3',
-	[5]: 'C4',
-	[6]: 'C#4',
-	[7]: 'D4',
-	[8]: 'D#4',
-	[9]: 'E4',
-	[10]: 'F4',
-	[11]: 'F#4',
-	[12]: 'G4',
-	[13]: 'G#4',
-	[14]: 'A4',
-	[15]: 'A#4',
-	[16]: 'B4',
-	[17]: 'C5',
-	[18]: 'C#5',
-	[19]: 'D5',
-	[20]: 'D#5',
-	[21]: 'E5',
-	[22]: 'F5',
-	[23]: 'F#5',
-	[24]: 'G5'
-};
-
-const lowerNotes = {
-	[0]: 'G1',
-	[1]: 'G#1',
-	[2]: 'A1',
-	[3]: 'A#1',
-	[4]: 'B1',
-	[5]: 'C2',
-	[6]: 'C#2',
-	[7]: 'D2',
-	[8]: 'D#2',
-	[9]: 'E2',
-	[10]: 'F2',
-	[11]: 'F#2',
-	[12]: 'G2',
-	[13]: 'G#2',
-	[14]: 'A2',
-	[15]: 'A#2',
-	[16]: 'B2',
-	[17]: 'C3',
-	[18]: 'C#3',
-	[19]: 'D3',
-	[20]: 'D#3',
-	[21]: 'E3',
-	[22]: 'F3',
-	[23]: 'F#3',
-	[24]: 'G3'
+	[0]: 'G',
+	[1]: 'G#',
+	[2]: 'A',
+	[3]: 'A#',
+	[4]: 'B',
+	[5]: 'C',
+	[6]: 'C#',
+	[7]: 'D',
+	[8]: 'D#',
+	[9]: 'E',
+	[10]: 'F',
+	[11]: 'F#',
+	[12]: 'G',
+	[13]: 'G#',
+	[14]: 'A',
+	[15]: 'A#',
+	[16]: 'B',
+	[17]: 'C',
+	[18]: 'C#',
+	[19]: 'D',
+	[20]: 'D#',
+	[21]: 'E',
+	[22]: 'F',
+	[23]: 'F#',
+	[24]: 'G'
 };
 
 const instrumentCodes = [0, 18, 6, 22, 73, 56, 65, 75, 24, 29, 106, 33, 40, 13, 11, 47, 72, 78, 17, 38, 77, 59,
@@ -77,7 +49,14 @@ const instrumentLengths = [
 	8, 9, 12, 8, 12, 5, 4, 3
 ];
 
-const bassInstruments = [11, 43, 47];
+const basePitches = [
+	2, 2, 2, 2, 4, 2, 2, 3,
+	2, 2, 2, 2, 2, 2, 2, 2,
+	2, 2, 2, 2, 2, 2, 2, 2,
+	2, 2, 2, 2, 2, 2, 2, 2,
+	2, 2, 2, 2, 2, 2, 2, 2,
+	3, 3, 3, 1, 2, 4, 4, 1,
+];
 
 const buildMidiFile = (mioData, loopTimes = 0) => {
 	let tracks = [];
@@ -94,9 +73,18 @@ const buildMidiFile = (mioData, loopTimes = 0) => {
 		console.debug('Using instrument', instrumentUsed);
 		let volume = mioData[BASE_VOLUME_OFFSET + trackIndex] * VOLUME_MULTIPLIER;
 
-		let notesUsed = notes;
-		if (bassInstruments.includes(instrumentUsed)) {
-			notesUsed = lowerNotes;
+		let notesUsed = []
+		
+		let base = basePitches[instrumentUsed];
+
+		for (let i = 0; i < 25; i++) {
+			if (i <= 4) {
+				notesUsed.push(notes[i] + base);
+			} else if (i <= 16) {
+				notesUsed.push(notes[i] + (base + 1));
+			} else {
+				notesUsed.push(notes[i] + (base + 2));
+			}
 		}
 
 		// Workarounds for instruments that are causing problems in timidity
