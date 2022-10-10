@@ -1,6 +1,6 @@
 {
   "name": "mio-loader",
-  "version": "0.2.1",
+  "version": "1.0.0",
   "description": "Loads mio files",
   "main": "src/loader.js",
   "scripts": {

@@ -15,14 +15,6 @@ let silentMusicPlayer = {
 };
 
 class Player extends EventEmitter {
-	mouseDown = false;
-	_musicPlayer = silentMusicPlayer;
-	gameId = 0;
-	shouldShowCommand = true;
-	isInfiniteMode = false;
-	isPaused = false;
-	playbackRate = 1;
-
 	constructor(canvas, document) {
 		super();
 
@@ -31,6 +23,14 @@ class Player extends EventEmitter {
 
 		this.collisionCanvas = document.createElement('canvas');
 		this.collisionContext = this.collisionCanvas.getContext('2d');
+
+		this.mouseDown = false;
+		this._musicPlayer = silentMusicPlayer;
+		this.gameId = 0;
+		this.shouldShowCommand = true;
+		this.isInfiniteMode = false;
+		this.isPaused = false;
+		this.playbackRate = 1;
 	}
 
 	get soundNames() {
@@ -199,6 +199,7 @@ class Player extends EventEmitter {
 			if (state.time > state.frame * frameDelay) {
 				if (this._musicPlayer.hasTrackEnded() && gameData.length === Mio.Length.Boss) {
 					this._musicPlayer.playMusic();
+					this.emit('replaymusic');
 				}
 
 				this.updateGame(gameData, state, assets);
@@ -1693,10 +1694,10 @@ function moveObjects(state, gameData) {
 						}
 						if (area.min.x > area.max.x) {
 							return position.x.toFixed(2) === ((area.min.x + area.max.x) / 2).toFixed(2)
-								&& position.y >= area.min.y && position.y <= area.max.y;
+								&& position.y >= area.min.y && position.y < area.max.y + 1;
 						}
 						if (area.min.y > area.max.y) {
-							return position.x >= area.min.x && position.x <= area.max.x
+							return position.x >= area.min.x && position.x < area.max.x + 1
 								&& position.y.toFixed(2) === ((area.min.y + area.max.y) / 2).toFixed(2);
 						}
 					};

@@ -36,16 +36,21 @@ const notes = {
 	[24]: 'G'
 };
 
-const instrumentCodes = [0, 18, 6, 22, 73, 56, 65, 75, 24, 29, 106, 33, 40, 13, 11, 47, 72, 78, 17, 38, 77, 59,
-	126, 124, 60, 61, 62, 123, 66, 125, 68, 122, 53, 54, 52, 49, 67, 121, 119, 48, 83, 84,
-	85, 86, 87, 88, 89, 90];
+const instrumentCodes = [
+	0, 18, 6, 22, 73, 56, 65, 75,
+	24, 29, 106, 33, 40, 13, 11, 47,
+	72, 78, 17, 38, 77, 59, 126, 124,
+	60, 61, 62, 123, 66, 125, 68, 122,
+	53, 54, 52, 49, 67, 121, 119, 48,
+	83, 84, 85, 86, 87, 88, 89, 90
+];
 
 const instrumentLengths = [
 	6, 10, 6, 9, 8, 4, 8, 8,
 	6, 16, 4, 4, 8, 2, 10, 3,
-	20, 5, 8, 3, 4, 4, 7, 3,
-	2, 2, 2, 3, 1, 3.5, 2, 2,
-	3, 8, 9, 9, 3, 2, 2, 12,
+	20, 5, 8, 3, 4, 4, 7, 4,
+	2, 2, 2, 3, 1, 6, 2, 2,
+	3, 8, 9, 9, 3, 4, 4, 12,
 	8, 9, 12, 8, 12, 5, 4, 3
 ];
 
@@ -53,8 +58,8 @@ const basePitches = [
 	3, 3, 3, 3, 4, 3, 3, 3,
 	3, 2, 2, 1, 4, 4, 4, 2,
 	4, 4, 4, 1, 3, 3, 2, 2,
-	3, 3, 3, 2, 3, 2, 3, 2,
-	3, 1, 2, 3, 3, 2, 2, 2,
+	3, 3, 3, 2, 3, 3, 3, 2,
+	3, 1, 2, 3, 3, 3, 3, 2,
 	3, 3, 3, 1, 2, 3, 3, 2,
 ];
 
@@ -70,7 +75,6 @@ const buildMidiFile = (mioData, loopTimes = 0) => {
 		let songOffset = BASE_SONG_OFFSET + trackIndex * trackLength;
 
 		let instrumentUsed = mioData[BASE_INSTRUMENT_OFFSET + trackIndex];
-		console.debug('Using instrument', instrumentUsed);
 		let volume = mioData[BASE_VOLUME_OFFSET + trackIndex] * VOLUME_MULTIPLIER;
 
 		let notesUsed = []
@@ -87,14 +91,11 @@ const buildMidiFile = (mioData, loopTimes = 0) => {
 			}
 		}
 
-		// Workarounds for instruments that are causing problems in timidity
 		let channel = trackIndex + 1;
-		if (instrumentUsed === 38) {
-			channel = 1;
-		}
-		if (instrumentUsed === 37) {
-			skipDrums = true;
-		}
+
+		let hasEndNote = false;
+		const finalTick = (1 + loopTimes) * 1024;
+
 		track.addEvent(new MidiWriter.ProgramChangeEvent({ channel, instrument: parseInt(instrumentCodes[instrumentUsed]) }));
 		for (let loopIter = 0; loopIter <= loopTimes; loopIter++) {
 			for (let i = 0; i < trackLength; i++) {
@@ -102,8 +103,8 @@ const buildMidiFile = (mioData, loopTimes = 0) => {
 				if (note !== 255) {
 					let noteLength = (instrumentLengths[instrumentUsed] * 8);
 					let startTick = 32 * i + loopIter * 1024;
-					if (noteLength + startTick > (1 + loopTimes) * 1024) {
-						noteLength = (1 + loopTimes) * 1024 - startTick;
+					if (noteLength + startTick > finalTick) {
+						noteLength = finalTick - startTick;
 					}
 					let duration = 'T' + noteLength;
 					track.addEvent(new MidiWriter.NoteEvent({
@@ -113,6 +114,16 @@ const buildMidiFile = (mioData, loopTimes = 0) => {
 						channel,
 						velocity: volume
 					}));
+					if (hasEndNote === false) {
+						track.addEvent(new MidiWriter.NoteEvent({
+							pitch: notesUsed[note],
+							duration: 'T1',
+							startTick: finalTick - 1,
+							channel,
+							velocity: 0
+						}));
+						hasEndNote = true;
+					}
 				}
 			}
 		}
