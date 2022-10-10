@@ -57,14 +57,6 @@ class Player extends EventEmitter {
 		this._fontBitmap = fontBitmap;
 	}
 
-	set fontBitmapLatin(fontBitmap) {
-		this._fontBitmap = fontBitmap;
-	}
-
-	set fontBitmapJp(fontBitmap) {
-		this._fontBitmapJp = fontBitmap;
-	}
-
 	set musicPlayer(musicPlayer) {
 		this._musicPlayer = musicPlayer;
 	}
@@ -327,43 +319,42 @@ let drawText = (context, fontBitmap, text, size = 16) => {
 
 	let widthInPixels = 0;
 
-	let firstChar = new TextEncoder().encode(text)[0];
-	if ((firstChar & 0xE0) !== 0xE0) {
+	const reducedWidthText = text.replace(
+		/[\uFF01-\uFF5E]/g,
+		(c) => String.fromCharCode(c.charCodeAt() - 0xFEE0),
+	);
 
-		for (let i = 0; i < text.length; i++) {
-			let letter = text[i];
-			let letterWidth = letterSpacing[letter] || w;
+	for (let i = 0; i < reducedWidthText.length; i++) {
+		let letter = reducedWidthText[i];
+		let letterWidth = letterSpacing[letter] || w;
 
-			widthInPixels += letterWidth;
+		widthInPixels += letterWidth;
+	}
+
+	let startOffset = BACKGROUND_WIDTH / 2 - widthInPixels / 2;
+
+	let offsetSoFar = startOffset;
+
+	for (let i = 0; i < reducedWidthText.length; i++) {
+		let letterIndex = indexInFontBitmap(reducedWidthText[i]);
+		if (letterIndex >= 12449) {
+			letterIndex -= 12449;
+			letterIndex += 286;
 		}
-
-		let startOffset = BACKGROUND_WIDTH / 2 - widthInPixels / 2;
-
-		let offsetSoFar = startOffset;
-
-		for (let i = 0; i < text.length; i++) {
-			let letterIndex = indexInFontBitmap(text[i]);
-			let bitmapIndex = letterIndex < 256 ? letterIndex : 32;
-			let bitmapX = bitmapIndex % 16 * w;
-			let bitmapY = Math.floor(bitmapIndex / 16) * h;
-
-			let args = [fontBitmap, bitmapX, bitmapY, w - 1, h - 1, offsetSoFar, BACKGROUND_HEIGHT / 2 - h + 5, w, h];
-
-			context.drawImage(...args);
-
-			let letterWidth = letterSpacing[text[i]] || w;
-			offsetSoFar += letterWidth;
+		if (letterIndex >= 12353) {
+			letterIndex -= 12353;
+			letterIndex += 203;
 		}
-	} else {
-		context.font = size + 'px warioware-diy-ds-microgame-font';
-		context.lineWidth = 2;
-		context.textAlign = "center";
-		//text = text.split("").join(String.fromCharCode(0x200A))
-		context.strokeText(text, BACKGROUND_WIDTH / 2, BACKGROUND_HEIGHT / 2);
+		let bitmapIndex = letterIndex < 512 ? letterIndex : 32;
+		let bitmapX = bitmapIndex % 16 * w;
+		let bitmapY = Math.floor(bitmapIndex / 16) * h;
 
-		context.fillStyle = gradient;
-		context.textAlign = "center";
-		context.fillText(text, BACKGROUND_WIDTH / 2, BACKGROUND_HEIGHT / 2);
+		let args = [fontBitmap, bitmapX, bitmapY, w - 1, h - 1, offsetSoFar, BACKGROUND_HEIGHT / 2 - h + 5, w, h];
+
+		context.drawImage(...args);
+
+		let letterWidth = letterSpacing[reducedWidthText[i]] || w;
+		offsetSoFar += letterWidth;
 	}
 }
 
@@ -2279,6 +2270,51 @@ function indexInFontBitmap(letter) {
 		["ܕ"]: 22,
 		["ܖ"]: 23,
 		["ܗ"]: 24,
+		['¿']: 25,
+		['¡']: 26,
+		['→']: 21,
+		['←']: 22,
+		['↑']: 23,
+		['↓']: 24,
+		['♯']: 192,
+		['「']: 199,
+		['」']: 200,
+		['『']: 201,
+		['』']: 202,
+		['・']: 372,
+		['ー']: 373,
+		['❤']: 374,
+		['“']: 378,
+		['”']: 379,
+		['…']: 380,
+		['※']: 381,
+		['①']: 385,
+		['②']: 386,
+		['③']: 387,
+		['④']: 388,
+		['⑤']: 389,
+		['⑥']: 390,
+		['⑦']: 391,
+		['⑧']: 392,
+		['⑨']: 393,
+		['⑩']: 394,
+		['⑪']: 395,
+		['⑫']: 396,
+		['⑬']: 397,
+		['⑭']: 398,
+		['⑮']: 399,
+		['Ⓐ']: 400,
+		['Ⓑ']: 401,
+		['Ⓒ']: 402,
+		['Ⓓ']: 403,
+		['□']: 404,
+		['△']: 405,
+		['◯']: 406,
+		['◎']: 407,
+		['★']: 408,
+		['☆']: 409,
+		['♪']: 410,
+		['♭']: 411,
 	};
 	let code = conversionMap[letter];
 	return code !== undefined ? code : letter.charCodeAt(0);
