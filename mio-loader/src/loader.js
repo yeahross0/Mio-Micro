@@ -276,6 +276,9 @@ class GameData {
 	get command() {
 		let offset = 0xE5DD;
 		let length = 18;
+		if ((this.data[offset] & 0xE0) === 0xE0) {
+			length = 24;
+		}
 		return nameFromData(this.data, offset, length);
 	}
 
