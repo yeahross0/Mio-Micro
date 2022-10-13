@@ -137,14 +137,29 @@ const buildMidiFile = (mioData, loopTimes = 0) => {
 
 		let volume = mioData[BASE_VOLUME_OFFSET + 4] * VOLUME_MULTIPLIER;
 
+		let drumSet = mioData[0xBA6F] & 0xF;
+
+		let drumConversion;
+		if (drumSet === 0) drumConversion = [35, 38, 42, 46, 49, 45, 50, 47, 31, 39, 54, 73, 80, 81];
+		if (drumSet === 1) drumConversion = [35, 38, 44, 46, 49, 40, 41, 42, 39, 37, 50, 51, 81, 80];
+		if (drumSet === 2) drumConversion = [66, 65, 82, 56, 57, 61, 60, 62, 75, 58, 79, 78, 81, 72];
+		if (drumSet === 3) drumConversion = [36, 37, 38, 50, 40, 60, 61, 62, 44, 39, 46, 47, 49, 51];
+		if (drumSet === 4) drumConversion = [36, 37, 82, 81, 38, 40, 42, 47, 39, 34, 41, 43, 44, 80];
+		if (drumSet === 5) drumConversion = [36, 38, 80, 81, 39, 35, 40, 41, 42, 58, 44, 45, 49, 43];
+		if (drumSet === 6) drumConversion = [35, 38, 42, 46, 49, 40, 44, 39, 37, 51, 52, 53, 54, 55];
+		if (drumSet === 7) drumConversion = [35, 38, 42, 46, 49, 41, 45, 50, 36, 39, 43, 34, 47, 48];
+
+		// TODO: Check which of these is necessary
+		track.addEvent(new MidiWriter.ControllerChangeEvent({ controllerNumber: 0, controllerValue: 0 }));
+		track.addEvent(new MidiWriter.ControllerChangeEvent({ controllerNumber: 32, controllerValue: drumSet }));
+		track.addEvent(new MidiWriter.ProgramChangeEvent({ channel: 10, instrument: drumSet }));
 
 		for (let loopIter = 0; loopIter <= loopTimes; loopIter++) {
 			for (let i = 0; i < trackLength; i++) {
 				for (let drumIndex = 0; drumIndex < SIMULTANEOUS_DRUMS; drumIndex++) {
 					let drumUsed = mioData[BASE_DRUM_OFFSET + i + drumIndex * 32];
 					if (drumUsed !== 255) {
-						let drumConversion = [35, 38, 42, 46, 49, 45, 50, 47, 31, 39, 54, 73, 80, 81];
-						let duration = 'T32';
+						let duration = 'T128';
 						track.addEvent([
 							new MidiWriter.NoteEvent({
 								pitch: drumConversion[drumUsed],
