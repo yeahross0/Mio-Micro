@@ -149,9 +149,6 @@ const buildMidiFile = (mioData, loopTimes = 0) => {
 		if (drumSet === 6) drumConversion = [35, 38, 42, 46, 49, 40, 44, 39, 37, 51, 52, 53, 54, 55];
 		if (drumSet === 7) drumConversion = [35, 38, 42, 46, 49, 41, 45, 50, 36, 39, 43, 34, 47, 48];
 
-		// TODO: Check which of these is necessary
-		track.addEvent(new MidiWriter.ControllerChangeEvent({ controllerNumber: 0, controllerValue: 0 }));
-		track.addEvent(new MidiWriter.ControllerChangeEvent({ controllerNumber: 32, controllerValue: drumSet }));
 		track.addEvent(new MidiWriter.ProgramChangeEvent({ channel: 10, instrument: drumSet }));
 
 		for (let loopIter = 0; loopIter <= loopTimes; loopIter++) {
