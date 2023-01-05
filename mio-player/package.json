@@ -1,6 +1,6 @@
 {
   "name": "mio-player",
-  "version": "0.5.2",
+  "version": "0.6.0",
   "description": "Plays mio files",
   "main": "src/player.js",
   "scripts": {
@@ -12,6 +12,6 @@
     "eslint": "^8.24.0"
   },
   "dependencies": {
-    "mio-loader": "^1.0.1"
+    "mio-loader": "^1.0.3"
   }
 }

@@ -66,6 +66,9 @@ intro.onload = () => {
     context.drawImage(intro, 0, 0);
 }
 
+let confettiSheet = new Image();
+confettiSheet.src = 'images/confetti.png';
+
 function windowSize(window) {
 	return [window.innerWidth, window.innerHeight];
 }
@@ -107,6 +110,8 @@ fontBitmap.src = 'images/miofont.png';
 }*/
 
 mioPlayer.fontBitmap = fontBitmap;
+
+mioPlayer.confettiBitmap = confettiSheet;
 
 function replayGame() {
 	mioPlayer.replay();

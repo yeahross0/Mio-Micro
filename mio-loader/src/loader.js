@@ -262,24 +262,27 @@ let hasBitsSet = (data, bits) => {
 	return (data & bits) === bits;
 };
 
+const NAME_OFFSET = 0x001C;
+
 class GameData {
 	constructor(data) {
 		this.data = data;
 	}
 
 	get name() {
-		let offset = 0x001C;
-		let length = 20;
+		let offset = NAME_OFFSET;
+		let length = this.isJpGame ? 24 : 20;
 		return nameFromData(this.data, offset, length);
 	}
 
 	get command() {
 		let offset = 0xE5DD;
-		let length = 18;
-		if ((this.data[offset] & 0xE0) === 0xE0) {
-			length = 24;
-		}
+		let length = this.isJpGame ? 24 : 18;
 		return nameFromData(this.data, offset, length);
+	}
+
+	get isJpGame() {
+		return (this.data[NAME_OFFSET] & 0xE0) === 0xE0;
 	}
 
 	get length() {
@@ -452,7 +455,7 @@ class AssemblyData {
 			}
 			let positionSlice = sliceFrom(this.data, offset + 16, 4);
 
-			let x = positionFromScrambledData(positionSlice, '-----CBA	-!IHGFED');
+			let x = positionFromScrambledData(positionSlice, 'CBA-----	-!IHGFED');
 			let y = positionFromScrambledData(positionSlice, '--------	A-------	IHGFEDCB	-------!');
 			let min = position;
 			let max = { x, y };
@@ -564,7 +567,7 @@ class InstructionData {
 			return firstHexDigit(data[offset]) + (secondHexDigit(data[offset + 1]) & 0x0F) * 16;
 		};
 
-		if (triggerTag === 0x11) {
+		if (triggerTag === 0x11 || triggerTag === 0x51) { // Is this just 0x11 and 0x51?
 			return { tag: Trigger.TapAnywhere };
 		} else if (secondHexDigit(triggerTag) === 0x01) {
 			return { tag: Trigger.TapThisObject };

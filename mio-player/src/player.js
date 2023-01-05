@@ -57,6 +57,10 @@ class Player extends EventEmitter {
 		this._fontBitmap = fontBitmap;
 	}
 
+	set confettiBitmap(confettiBitmap) {
+		this._confettiBitmap = confettiBitmap;
+	}
+
 	set musicPlayer(musicPlayer) {
 		this._musicPlayer = musicPlayer;
 	}
@@ -126,7 +130,7 @@ class Player extends EventEmitter {
 		setPlaybackRates(this._sounds);
 		setPlaybackRates(this._winSounds);
 		setPlaybackRates(this._loseSounds);
-
+		
 		requestAnimationFrame(() => {
 
 			if (this.shouldShowCommand) {
@@ -188,7 +192,7 @@ class Player extends EventEmitter {
 			this.context.fillStyle = "#88888844";
 			this.context.fillRect(0, 0, BACKGROUND_WIDTH, BACKGROUND_HEIGHT);
 		} else {
-			if (state.time > state.frame * frameDelay) {
+			while (state.time > state.frame * frameDelay) {
 				if (this._musicPlayer.hasTrackEnded() && gameData.length === Mio.Length.Boss) {
 					this._musicPlayer.playMusic();
 					this.emit('replaymusic');
@@ -214,6 +218,7 @@ class Player extends EventEmitter {
 
 				const MAX_PLAUSIBLE_DELTA = 50;
 				state.time += Math.min(time - state.lastTimestamp, MAX_PLAUSIBLE_DELTA) * this.playbackRate;
+				//console.debug(state.frame, state.time);
 				state.lastTimestamp = time;
 			}
 			this.runFrame(gameData, state, assets);
@@ -225,6 +230,30 @@ class Player extends EventEmitter {
 			this.context.filter = 'invert(1)';
 		} else {
 			this.context.filter = 'none';
+
+			if (state.flash) {
+				state.flash--;
+			}
+			if (state.isConfetti) {
+				// TODO:
+				if (state.confetti === undefined) {
+					state.confetti = [];
+				}
+				while (state.confetti.length < 80) {
+					state.confetti.push(
+						{
+							position: {
+								x: randomInRange(-50, 250),
+								y: randomInRange(-300, -32)
+							},
+							animationIndex: randomIntInRange(0, 4),
+							velocity: { x: randomIntInRange(-1, 2) * 0.75, y: 1 }
+						}
+					);
+				}
+			} else {
+				state.confetti = [];
+			}
 		}
 		this.context.drawImage(assets.backgroundImage, 0, 0);
 		this.collisionContext.clearRect(0, 0, this.collisionCanvas.width, this.collisionCanvas.height);
@@ -244,6 +273,35 @@ class Player extends EventEmitter {
 				let collisionImage = gameData.collisionData[bank].sprite;
 				this.collisionContext.drawImage(collisionImage, Math.floor(position.x - halfSize), Math.floor(position.y - halfSize));
 			}
+		}
+
+		for (let i = 0; i < state.confetti.length; i++) {
+			let animation = (state.confetti[i].animationIndex + Math.floor(state.frame / 8)) % 4;
+			let bitmapX = animation * 15;
+			let args = [this._confettiBitmap, bitmapX, 0, 15, 15, state.confetti[i].position.x, state.confetti[i].position.y, 15, 15];
+			context.drawImage(...args);
+			
+			if (!this.isPaused) {
+				state.confetti[i].position.x += state.confetti[i].velocity.x;
+				state.confetti[i].position.y += state.confetti[i].velocity.y;
+			}
+			
+			if (state.confetti[i].position.y > 150) {
+				state.confetti[i] = {
+					position: {x: randomInRange(0, 192), y: randomInRange(-100, -32) },
+					animationIndex: randomIntInRange(0, 4),
+					velocity: { x: randomIntInRange(-1, 2) * 0.75, y: 1 }
+				};
+			}
+		}
+		
+		if (state.flash !== undefined && state.flash > 0) {
+			let alpha = state.flash / 10;
+			alpha = 0.6 - Math.abs(alpha - 0.5);
+			context.fillStyle = "rgba(255, 255, 255, " + alpha + ")"; 
+			// TODO: BGWidth and height
+			context.rect(0, 0, 192, 128);
+			context.fill();
 		}
 
 		if (state.frame < 45 && this.shouldShowCommand) {
@@ -370,7 +428,7 @@ function positionInArea(area, size) {
 	if (minX > maxX) {
 		x = (area.min.x + area.max.x) / 2;
 	} else {
-		x = randomIntInRange(minX, maxX);
+		x = randomIntInRange(minX, maxX + 1);
 	}
 	let minY = area.min.y + halfSize;
 	let maxY = area.max.y - halfSize;
@@ -378,9 +436,9 @@ function positionInArea(area, size) {
 	if (minY > maxY) {
 		y = (area.min.y + area.max.y) / 2;
 	} else {
-		y = randomIntInRange(minY, maxY);
+		y = randomIntInRange(minY, maxY + 1);
 	}
-	return { x, y }
+	return { x: Math.floor(x), y: Math.floor(y) }
 }
 
 function animationTimeFromSpeed(speed) {
@@ -415,7 +473,9 @@ const ActiveTravel = {
 	Stop: 'Stop',
 	JumpToPosition: 'JumpToPosition',
 	JumpToArea: 'JumpToArea',
-	Swap: 'Swap'
+	Swap: 'Swap',
+	// Updates attached objects after the Swap action
+	UpdateAttachments: 'UpdateAttachments'
 };
 
 const BounceDirection = {
@@ -831,12 +891,18 @@ function jumpToStartingPositions(objects, properties, collisionData) {
 			let area = cloneArea(location.area);
 			let artIndex = props.art.artIndex;
 			let collisionArea = objects[i].art[artIndex].collisionArea;
+			let halfSize = props.size / 2;
+			area.min.x += halfSize;
+			area.min.y += halfSize;
+			area.max.x -= halfSize;
+			area.max.y -= halfSize;
+
 			area.min.x -= collisionArea.min.x;
 			area.min.y -= collisionArea.min.y;
-			area.max.x += props.size - collisionArea.max.x;
-			area.max.y += props.size - collisionArea.max.y;
+			area.max.x += props.size - collisionArea.max.x + 1;
+			area.max.y += props.size - collisionArea.max.y + 1;
 			if (location.overlap === Mio.Overlap.Anywhere) {
-				props.position = positionInArea(area, size);
+				props.position = positionInArea(area, 0);
 			} else {
 				attemptToJump(properties, i, area, collisionData, MAX_BEFORE_GAME_JUMP_ATTEMPTS);
 			}
@@ -962,12 +1028,12 @@ class CollisionArea {
 	constructor(area) {
 		this.area = cloneArea(area);
 		// TODO: ?
-		if (this.area.min.x == this.area.max.x) {
+		//if (this.area.min.x == this.area.max.x) {
 			this.area.max.x++;
-		}
-		if (this.area.min.y == this.area.max.y) {
+		//}
+		//if (this.area.min.y == this.area.max.y) {
 			this.area.max.y++;
-		}
+		//}
 	}
 
 	isPixelVisible() {
@@ -1016,7 +1082,7 @@ function areTouching(properties, index, otherIndex, collisionData) {
 function attemptToJump(properties, index, area, collisionData, maxJumpAttempts) {
 	let props = properties[index];
 	attempts_loop: for (let attempts = 0; attempts < maxJumpAttempts; attempts++) {
-		props.position = positionInArea(area, props.size);
+		props.position = positionInArea(area, 0);
 		object_loop: for (let otherIndex = 0; otherIndex < Mio.OBJECT_COUNT; otherIndex++) {
 			if (index === otherIndex) {
 				continue object_loop;
@@ -1282,10 +1348,20 @@ function goStraightTravel(action, state) {
 
 function jumpToAreaTravel(action, props, collisionArea) {
 	let area = cloneArea(action.area);
-	area.min.x -= collisionArea.min.x;
+	/*area.min.x -= collisionArea.min.x;
 	area.min.y -= collisionArea.min.y;
 	area.max.x += props.size - collisionArea.max.x;
-	area.max.y += props.size - collisionArea.max.y;
+	area.max.y += props.size - collisionArea.max.y;*/
+	let halfSize = props.size / 2;
+	area.min.x += halfSize;
+	area.min.y += halfSize;
+	area.max.x -= halfSize;
+	area.max.y -= halfSize;
+
+	area.min.x -= collisionArea.min.x;
+	area.min.y -= collisionArea.min.y;
+	area.max.x += props.size - collisionArea.max.x + 1;
+	area.max.y += props.size - collisionArea.max.y + 1;
 	return { tag: ActiveTravel.JumpToArea, area, overlap: action.overlap };
 }
 
@@ -1302,8 +1378,8 @@ function roamTravel(action, state, props, collisionArea) {
 
 	area.min.x -= collisionArea.min.x;
 	area.min.y -= collisionArea.min.y;
-	area.max.x += props.size - collisionArea.max.x;
-	area.max.y += props.size - collisionArea.max.y;
+	area.max.x += props.size - collisionArea.max.x + 1;
+	area.max.y += props.size - collisionArea.max.y + 1;
 	let overlap = action.overlap;
 	let travel;
 	let roam = action.roam;
@@ -1335,8 +1411,22 @@ function roamTravel(action, state, props, collisionArea) {
 			let d = Math.sqrt(Math.pow(velocity.x, 2) + Math.pow(velocity.y, 2));
 			velocity.x = velocity.x / d * speed;
 			velocity.y = velocity.y / d * speed;
+		} else if (lastTravel.tag === ActiveTravel.Roam && (lastTravel.roam === Mio.Roam.Bounce || lastTravel.roam === Mio.Roam.Reflect)) {
+			velocity = clonePosition(lastTravel.velocity);
+		} else if (lastTravel.tag === ActiveTravel.GoToObject) {
+			// TODO: Calculate initial velocity function later?
+			let position = state.properties[lastTravel.index].position;
+			let targetVector = { x: position.x - props.position.x, y: position.y - props.position.y };
+			let d = Math.sqrt(Math.pow(targetVector.x, 2) + Math.pow(targetVector.y, 2));
+			if (d !== 0) {
+				velocity = {
+					x: targetVector.x / d * lastTravel.speed,
+					y: targetVector.y / d * lastTravel.speed
+				};
+			}
 		}
-		travel = { tag, roam, area, speed, overlap, velocity };
+		let hasEnteredArea = isPositionInArea(props.position, action.area);
+		travel = { tag, roam, area, speed, overlap, velocity, hasEnteredArea };
 	} else if (roam === Mio.Roam.Bounce) {
 		let acceleration = speed / 16;
 
@@ -1368,6 +1458,10 @@ function roamTravel(action, state, props, collisionArea) {
 				let position = lastTravel.position;
 				let targetVector = { x: position.x - currentPos.x, y: position.y - currentPos.y };
 				let d = Math.sqrt(Math.pow(targetVector.x, 2) + Math.pow(targetVector.y, 2));
+				if (d === 0) {
+					const v = clonePosition(velocity);
+					return v;
+				}
 				return {
 					x: targetVector.x / d * lastTravel.speed,
 					y: targetVector.y / d * lastTravel.speed
@@ -1380,13 +1474,22 @@ function roamTravel(action, state, props, collisionArea) {
 				let position = state.properties[lastTravel.index].position;
 				let targetVector = { x: position.x - currentPos.x, y: position.y - currentPos.y };
 				let d = Math.sqrt(Math.pow(targetVector.x, 2) + Math.pow(targetVector.y, 2));
+				if (d === 0) {
+					const v = clonePosition(velocity);
+					return v;
+				}
 				return {
 					x: targetVector.x / d * lastTravel.speed,
 					y: targetVector.y / d * lastTravel.speed
 				};
 			}
 		}
-		travel = { tag, roam, area, speed, overlap, velocity, acceleration, calculateInitialVelocity };
+		// TODO: ! Use better values than halfsize to check if it should bounce, collision area?
+		// TODO: Tidy this up
+		let hasEnteredAreaX = area.min.x > area.max.x && props.position.x + halfSize >= action.area.min.x && props.position.x - halfSize <= action.area.max.x;
+		let hasEnteredAreaY = area.min.y > area.max.y && props.position.y + halfSize >= action.area.min.y && props.position.y - halfSize <= action.area.max.y;
+		let hasEnteredArea = { x: hasEnteredAreaX, y: hasEnteredAreaY };
+		travel = { tag, roam, area, speed, overlap, velocity, acceleration, calculateInitialVelocity, hasEnteredArea };
 	}
 
 	return travel;
@@ -1507,9 +1610,18 @@ function applyAction(state, i, action, gameData, assets) {
 			return;
 		}
 		case Mio.Action.ScreenEffect: {
-			// TODO: Implement others
+			// TODO: Implement shake
 			if (action.effect === Mio.ScreenEffect.Freeze) {
 				state.isFrozen = true;
+			}
+			// TODO: Add effect object to state
+			if (action.effect === Mio.ScreenEffect.Flash) {
+				if (state.flash === 0 || state.flash === undefined) {
+						state.flash = 10;
+				}
+			}
+			if (action.effect === Mio.ScreenEffect.Confetti) {
+					state.isConfetti = true;
 			}
 			return;
 		}
@@ -1583,7 +1695,14 @@ function updateAnimations(state, gameData) {
 	}
 }
 
+const isPositionInArea = (position, area) => {
+	return position.x >= area.min.x && position.x <= area.max.x
+		&& position.y >= area.min.y && position.y <= area.max.y;
+};
+
 function moveObjects(state, gameData) {
+	let startPositions = state.properties.map(p => p !== null ? clonePosition(p.position) : null);
+
 	for (let i = 0; i < gameData.objects.length; i++) {
 		if (gameData.objects[i] === null) continue;
 		let props = state.properties[i];
@@ -1591,9 +1710,7 @@ function moveObjects(state, gameData) {
 			let travel = props.travel[t];
 
 			if (t < props.travel.length - 1
-				&& (travel.tag === ActiveTravel.GoStraight
-					|| travel.tag === ActiveTravel.GoToPoint
-					|| travel.tag === ActiveTravel.GoToObject
+				&& (travel.tag === ActiveTravel.GoToObject
 					|| travel.tag === ActiveTravel.Roam
 					|| travel.tag === ActiveTravel.Stop)) {
 				continue;
@@ -1620,6 +1737,8 @@ function moveObjects(state, gameData) {
 				return velocity;
 			};
 
+			let updateAttachments = null;
+
 			switch (travel.tag) {
 				case ActiveTravel.JumpToPosition: {
 					props.position = clonePosition(travel.position);
@@ -1627,7 +1746,7 @@ function moveObjects(state, gameData) {
 				}
 				case ActiveTravel.JumpToArea: {
 					if (travel.overlap === Mio.Overlap.Anywhere) {
-						props.position = positionInArea(travel.area, props.size);
+						props.position = positionInArea(travel.area, 0);
 					} else {
 						attemptToJump(state.properties, i, travel.area, gameData.collisionData, MAX_DURING_GAME_JUMP_ATTEMPTS);
 					}
@@ -1637,6 +1756,7 @@ function moveObjects(state, gameData) {
 					let temp = clonePosition(props.position);
 					props.position = clonePosition(state.properties[travel.index].position);
 					state.properties[travel.index].position = temp;
+					updateAttachments = travel.index;
 					break;
 				}
 				case ActiveTravel.GoStraight: {
@@ -1644,8 +1764,10 @@ function moveObjects(state, gameData) {
 						props.position = travel.fromPosition;
 						travel.fromPosition = null;
 					}
-					props.position.x += travel.velocity.x;
-					props.position.y += travel.velocity.y;
+					if (t === props.travel.length - 1) {
+						props.position.x += travel.velocity.x;
+						props.position.y += travel.velocity.y;
+					}
 					break;
 				}
 				case ActiveTravel.GoToPoint: {
@@ -1653,31 +1775,38 @@ function moveObjects(state, gameData) {
 						props.position = travel.fromPosition;
 						travel.fromPosition = null;
 					}
-					let position = clonePosition(travel.position);
-					moveToward(props, position);
+					if (t === props.travel.length - 1) {
+						let position = clonePosition(travel.position);
+						moveToward(props, position);
+					}
 					break;
 				}
 				case ActiveTravel.GoToObject: {
-					let position = clonePosition(state.properties[travel.index].position);
+					let position = clonePosition(startPositions[travel.index]);
 					position.x += travel.offset.x;
 					position.y += travel.offset.y;
 					moveToward(props, position);
 					break;
 				}
 				case ActiveTravel.AttachTo: {
-					let position = clonePosition(state.properties[travel.index].position);
-					position.x += travel.offset.x;
-					position.y += travel.offset.y;
-					props.position = position;
+					if (travel.done !== true) {
+						travel.done = true;
+						travel.attachedToThisFrame = true;
+						let position = clonePosition(state.properties[travel.index].position);
+						position.x += travel.offset.x;
+						position.y += travel.offset.y;
+						props.position = position;
+					} else {
+						travel.attachedToThisFrame = false;
+					}
+					break;
+				}
+				case ActiveTravel.UpdateAttachments: {
 					break;
 				}
 				case ActiveTravel.Roam: {
 					let area = travel.area;
 					let centre = { x: (area.min.x + area.max.x) / 2, y: (area.min.y + area.max.y) / 2 };
-					let isPositionInArea = (position, area) => {
-						return position.x >= area.min.x && position.x <= area.max.x
-							&& position.y >= area.min.y && position.y <= area.max.y;
-					};
 					let isPositionInExtendedArea = (position, area) => {
 						if (area.min.x <= area.max.x && area.min.y <= area.max.y) {
 							return position.x >= area.min.x && position.x <= area.max.x
@@ -1830,7 +1959,8 @@ function moveObjects(state, gameData) {
 								}
 							}
 						}
-						if (isPositionInExtendedArea(props.position, area)) {
+						if (isPositionInExtendedArea(props.position, area) || travel.hasEnteredArea === true) {
+							travel.hasEnteredArea = true;
 							if (Math.floor(props.position.x) > area.max.x) {
 								travel.velocity.x = -Math.abs(travel.velocity.x);
 							}
@@ -1894,7 +2024,7 @@ function moveObjects(state, gameData) {
 								} else {
 									if (props.position.y < state.properties[touchingIndex].position.y) {
 										// Dunno why I put this as it
-										travel.velocity.y = props.position.y > travel.area.min.y ? -Math.sqrt(2 * travel.acceleration * (travel.area.max.y - travel.area.min.y)) : 0.0;
+										travel.velocity.y = props.position.y > area.min.y ? -Math.sqrt(2 * travel.acceleration * (area.max.y - area.min.y)) : 0.0;
 									}
 									if (props.position.y > state.properties[touchingIndex].position.y) {
 										travel.velocity.y = 0;
@@ -1902,15 +2032,31 @@ function moveObjects(state, gameData) {
 								}
 							}
 						}
-						if (props.position.y < area.min.y) {
-							// TODO: Why is abs necessary?
-							travel.velocity.y += Math.abs(travel.acceleration);
-						} else if (props.position.y <= area.max.y) {
-							travel.velocity.y += travel.acceleration;
-						} else if (Math.floor(props.position.y) > area.max.y) {
-							travel.velocity.y = props.position.y > travel.area.min.y ? -Math.sqrt(2 * travel.acceleration * (props.position.y - travel.area.min.y)) : 0.0;
+						if (area.min.y < area.max.y) {
+							if (props.position.y < area.min.y) {
+								// TODO: Why is abs necessary?
+								travel.velocity.y += Math.abs(travel.acceleration);
+							} else if (props.position.y <= area.max.y) {
+								travel.velocity.y += travel.acceleration;
+							} else if (props.position.y > area.max.y) {
+								travel.velocity.y = props.position.y > area.min.y ? -Math.sqrt(2 * travel.acceleration * (props.position.y - area.min.y - 1)) : 0.0;
+								// TODO:?
+								//travel.velocity.y += travel.acceleration;
+							}
+						} else {
+							if (travel.hasEnteredArea.y) {
+								travel.velocity.y = 0;
+							} else if (props.position.y < area.max.y) {
+								// TODO: Why is abs necessary?
+								travel.velocity.y += Math.abs(travel.acceleration);
+							} else if (props.position.y <= area.min.y) {
+								travel.velocity.y += travel.acceleration;
+							} else if (Math.floor(props.position.y) > area.min.y) {
+								travel.velocity.y = props.position.y > area.max.y ? -Math.sqrt(2 * travel.acceleration * (props.position.y - area.max.y - 1)) : 0.0;
+							}
 						}
-						if (Math.floor(props.position.x) > area.max.x) {
+						// TODO: Remove any unnecessary Math.floors
+						if (Math.floor(props.position.x) >= area.max.x) {
 							travel.velocity.x = -Math.abs(travel.velocity.x);
 						} else if (Math.floor(props.position.x) < area.min.x) {
 							travel.velocity.x = Math.abs(travel.velocity.x);
@@ -1921,30 +2067,79 @@ function moveObjects(state, gameData) {
 							if (props.position.x > centreX) {
 								horizontalSpeed = -horizontalSpeed;
 							}
-							props.position.x = moveCoordinateTo(props.position.x, centreX, horizontalSpeed);
+							if (travel.hasEnteredArea.x) {
+							} else {
+								props.position.x += travel.velocity.x;
+							}
 						} else {
 							props.position.x += travel.velocity.x;
 						}
-						props.position.y += travel.velocity.y;
+						// TODO: Standalone has different code here
+						let verticalSpeed = travel.velocity.y;
+						if (area.min.y >= area.max.y) {
+							let centreY = (area.min.y + area.max.y) / 2.0;
+							if (Math.abs(props.position.y - centreY) < 0.01) {
+								props.position.y = centreY;
+							} else if (Math.abs(props.position.y - centreY) < Math.abs(verticalSpeed)) {
+								props.position.y = centreY;
+							} else {
+								props.position.y += travel.velocity.y;
+							}
+						} else {
+							props.position.y += travel.velocity.y;
+						}
 					}
 					break;
 				}
 			}
+
+			const findAttachments = (index) => {
+				let attached = [];
+				for (let j = 0; j < gameData.objects.length; j++) {
+					if (gameData.objects[j] === null) continue;
+					let props = state.properties[j];
+					let travel = props.travel[props.travel.length - 1];
+					if (travel.tag === ActiveTravel.AttachTo) {
+						if (travel.index === index) {
+							attached.push(j);
+						}
+					}
+					//resolveAttachments(j, i);
+				}
+				return attached;
+			};
+
+			var done = [];
+			
+			const moveAttachments = (i) => {
+				let attachments = findAttachments(i);
+				//if (attachments.length !== 0) console.debug(state.frame, i, attachments);
+				done.push(i);
+				attachments.forEach(index => {
+					if (done.includes(index)) return;
+					let position = clonePosition(state.properties[i].position);
+					let props = state.properties[index];
+					let travel = props.travel[props.travel.length - 1];
+					position.x += travel.offset.x;
+					position.y += travel.offset.y;
+					state.properties[index].position = position;
+					
+					moveAttachments(index);
+				});
+			};
+			
+			if ((travel.tag !== ActiveTravel.AttachTo || travel.attachedToThisFrame === true) && travel.tag !== ActiveTravel.Stop) {
+				moveAttachments(i);
+			}
+			
+			done = [];
+			
+			if (updateAttachments !== null) {
+				moveAttachments(updateAttachments);
+			}
 		}
 
 		props.travel = [props.travel[props.travel.length - 1]];
-	}
-
-	for (let i = 0; i < gameData.objects.length; i++) {
-		if (gameData.objects[i] === null) continue;
-		let props = state.properties[i];
-		let travel = props.travel[0];
-		if (travel.tag === ActiveTravel.AttachTo) {
-			let position = clonePosition(state.properties[travel.index].position);
-			position.x += travel.offset.x;
-			position.y += travel.offset.y;
-			props.position = position;
-		}
 	}
 }
 

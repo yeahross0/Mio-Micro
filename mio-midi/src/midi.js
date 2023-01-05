@@ -4,9 +4,11 @@ const TRACK_COUNT = 4;
 const BASE_SONG_OFFSET = 0xB961;
 const BASE_INSTRUMENT_OFFSET = 0xBA6B;
 const BASE_VOLUME_OFFSET = 0xBA61;
+const BASE_PAN_OFFSET = 0xBA66;
 const BASE_DRUM_OFFSET = 0xB9E1;
 const SIMULTANEOUS_DRUMS = 4;
 const VOLUME_MULTIPLIER = 13;
+const PAN_MULTIPLIER = 32;
 
 const notes = {
 	[0]: 'G',
@@ -46,7 +48,7 @@ const instrumentCodes = [
 ];
 
 const instrumentLengths = [
-	6, 10, 6, 9, 8, 4, 8, 8,
+	6, 10, 6, 9, 32, 4, 8, 8,
 	6, 16, 4, 4, 8, 2, 10, 3,
 	20, 5, 8, 3, 4, 4, 7, 4,
 	2, 2, 2, 3, 1, 6, 2, 2,
@@ -76,6 +78,7 @@ const buildMidiFile = (mioData, loopTimes = 0) => {
 
 		let instrumentUsed = mioData[BASE_INSTRUMENT_OFFSET + trackIndex];
 		let volume = mioData[BASE_VOLUME_OFFSET + trackIndex] * VOLUME_MULTIPLIER;
+		let pan = Math.min(127, mioData[BASE_PAN_OFFSET + trackIndex] * PAN_MULTIPLIER);
 
 		let notesUsed = []
 		
@@ -97,15 +100,21 @@ const buildMidiFile = (mioData, loopTimes = 0) => {
 		const finalTick = (1 + loopTimes) * 1024;
 
 		track.addEvent(new MidiWriter.ProgramChangeEvent({ channel, instrument: parseInt(instrumentCodes[instrumentUsed]) }));
+		track.addEvent(new MidiWriter.ControllerChangeEvent({ channel, controllerNumber: 10, controllerValue: pan }));
 		for (let loopIter = 0; loopIter <= loopTimes; loopIter++) {
 			for (let i = 0; i < trackLength; i++) {
 				let note = mioData[songOffset + i];
 				if (note !== 255) {
 					let noteLength = (instrumentLengths[instrumentUsed] * 8);
 					let startTick = 32 * i + loopIter * 1024;
-					if (noteLength + startTick > finalTick) {
-						noteLength = finalTick - startTick;
+					for (var p = i + 1; ; p++) {
+						if (mioData[songOffset + (p % trackLength)] !== 255) {
+							//console.debug(i, p);
+							break;
+						}
 					}
+					let peek = p * 32;
+					noteLength = Math.min(noteLength, peek - i * 32);
 					let duration = 'T' + noteLength;
 					track.addEvent(new MidiWriter.NoteEvent({
 						pitch: notesUsed[note],
@@ -136,11 +145,12 @@ const buildMidiFile = (mioData, loopTimes = 0) => {
 		let track = new MidiWriter.Track();
 
 		let volume = mioData[BASE_VOLUME_OFFSET + 4] * VOLUME_MULTIPLIER;
+		let pan = Math.min(127, mioData[BASE_PAN_OFFSET + 4] * PAN_MULTIPLIER);
 
-		let drumSet = mioData[0xBA6F] & 0xF;
+		let drumSet = mioData[0xBA6F] & 0x7;
 
 		let drumConversion;
-		if (drumSet === 0) drumConversion = [35, 38, 42, 46, 49, 45, 50, 47, 31, 39, 54, 73, 80, 81];
+		if (drumSet === 0) drumConversion = [35, 38, 42, 46, 49, 45, 50, 47, 31, 39, 82, 25, 80, 81];
 		if (drumSet === 1) drumConversion = [35, 38, 44, 46, 49, 40, 41, 42, 39, 37, 50, 51, 81, 80];
 		if (drumSet === 2) drumConversion = [66, 65, 82, 56, 57, 61, 60, 62, 75, 58, 79, 78, 81, 72];
 		if (drumSet === 3) drumConversion = [36, 37, 38, 50, 40, 60, 61, 62, 44, 39, 46, 47, 49, 51];
@@ -150,6 +160,7 @@ const buildMidiFile = (mioData, loopTimes = 0) => {
 		if (drumSet === 7) drumConversion = [35, 38, 42, 46, 49, 41, 45, 50, 36, 39, 43, 34, 47, 48];
 
 		track.addEvent(new MidiWriter.ProgramChangeEvent({ channel: 10, instrument: drumSet }));
+		track.addEvent(new MidiWriter.ControllerChangeEvent({ channel: 10, controllerNumber: 10, controllerValue: pan }));
 
 		for (let loopIter = 0; loopIter <= loopTimes; loopIter++) {
 			for (let i = 0; i < trackLength; i++) {
