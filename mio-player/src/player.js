@@ -130,7 +130,7 @@ class Player extends EventEmitter {
 		setPlaybackRates(this._sounds);
 		setPlaybackRates(this._winSounds);
 		setPlaybackRates(this._loseSounds);
-		
+
 		requestAnimationFrame(() => {
 
 			if (this.shouldShowCommand) {
@@ -280,25 +280,25 @@ class Player extends EventEmitter {
 			let bitmapX = animation * 15;
 			let args = [this._confettiBitmap, bitmapX, 0, 15, 15, state.confetti[i].position.x, state.confetti[i].position.y, 15, 15];
 			context.drawImage(...args);
-			
+
 			if (!this.isPaused) {
 				state.confetti[i].position.x += state.confetti[i].velocity.x;
 				state.confetti[i].position.y += state.confetti[i].velocity.y;
 			}
-			
+
 			if (state.confetti[i].position.y > 150) {
 				state.confetti[i] = {
-					position: {x: randomInRange(0, 192), y: randomInRange(-100, -32) },
+					position: { x: randomInRange(0, 192), y: randomInRange(-100, -32) },
 					animationIndex: randomIntInRange(0, 4),
 					velocity: { x: randomIntInRange(-1, 2) * 0.75, y: 1 }
 				};
 			}
 		}
-		
+
 		if (state.flash !== undefined && state.flash > 0) {
 			let alpha = state.flash / 10;
 			alpha = 0.6 - Math.abs(alpha - 0.5);
-			context.fillStyle = "rgba(255, 255, 255, " + alpha + ")"; 
+			context.fillStyle = "rgba(255, 255, 255, " + alpha + ")";
 			// TODO: BGWidth and height
 			context.rect(0, 0, 192, 128);
 			context.fill();
@@ -1029,10 +1029,10 @@ class CollisionArea {
 		this.area = cloneArea(area);
 		// TODO: ?
 		//if (this.area.min.x == this.area.max.x) {
-			this.area.max.x++;
+		this.area.max.x++;
 		//}
 		//if (this.area.min.y == this.area.max.y) {
-			this.area.max.y++;
+		this.area.max.y++;
 		//}
 	}
 
@@ -1321,6 +1321,7 @@ function cloneArea(area) {
 
 function goStraightTravel(action, state) {
 	let fromPosition = null;
+	let fromIndex = null;
 	if (action.from.tag === Mio.FromLocation.AnotherPosition) {
 		fromPosition = clonePosition(action.from.position);
 	} else if (action.from.tag === Mio.FromLocation.AnotherObject) {
@@ -1328,20 +1329,21 @@ function goStraightTravel(action, state) {
 		fromPosition = clonePosition(state.properties[action.from.index].position);
 		fromPosition.x += action.from.offset.x;
 		fromPosition.y += action.from.offset.y;
+		fromIndex = action.from.index;
 	}
 	let speed = valueFromSpeed(action.speed);
 	let travel;
 	if (action.direction.tag === Mio.Direction.Random) {
 		let direction = randomInArray(possibleDirections);
 		let velocity = velocityFromDirection(direction, speed);
-		travel = { tag: ActiveTravel.GoStraight, velocity, fromPosition };
+		travel = { tag: ActiveTravel.GoStraight, velocity, fromPosition, fromIndex };
 	} else if (action.direction.tag === Mio.Direction.Specific) {
 		let direction = action.direction.direction;
 		let velocity = velocityFromDirection(direction, speed);
-		travel = { tag: ActiveTravel.GoStraight, velocity, fromPosition };
+		travel = { tag: ActiveTravel.GoStraight, velocity, fromPosition, fromIndex };
 	} else {
 		let position = action.direction.position;
-		travel = { tag: ActiveTravel.GoToPoint, position, speed, fromPosition };
+		travel = { tag: ActiveTravel.GoToPoint, position, speed, fromPosition, fromIndex };
 	}
 	return travel;
 }
@@ -1405,7 +1407,9 @@ function roamTravel(action, state, props, collisionArea) {
 		}
 		let angle = randomInRange(0, Math.PI * 2);
 		velocity = { x: speed * Math.cos(angle), y: speed * Math.sin(angle) };
+		let wentStraight = false;
 		if (lastTravel.tag === ActiveTravel.GoStraight) {
+			wentStraight = true;
 			// TODO: Adjust for speed
 			velocity = clonePosition(lastTravel.velocity);
 			let d = Math.sqrt(Math.pow(velocity.x, 2) + Math.pow(velocity.y, 2));
@@ -1426,7 +1430,7 @@ function roamTravel(action, state, props, collisionArea) {
 			}
 		}
 		let hasEnteredArea = isPositionInArea(props.position, action.area);
-		travel = { tag, roam, area, speed, overlap, velocity, hasEnteredArea };
+		travel = { tag, roam, area, speed, overlap, velocity, hasEnteredArea, wentStraight };
 	} else if (roam === Mio.Roam.Bounce) {
 		let acceleration = speed / 16;
 
@@ -1499,6 +1503,7 @@ function pushToTravelQueue(action, state, props, collisionArea) {
 	switch (action.travel) {
 		case Mio.Travel.GoStraight: {
 			let travel = goStraightTravel(action, state);
+
 			props.travel.push(travel);
 			return;
 		}
@@ -1617,11 +1622,11 @@ function applyAction(state, i, action, gameData, assets) {
 			// TODO: Add effect object to state
 			if (action.effect === Mio.ScreenEffect.Flash) {
 				if (state.flash === 0 || state.flash === undefined) {
-						state.flash = 10;
+					state.flash = 10;
 				}
 			}
 			if (action.effect === Mio.ScreenEffect.Confetti) {
-					state.isConfetti = true;
+				state.isConfetti = true;
 			}
 			return;
 		}
@@ -1762,6 +1767,10 @@ function moveObjects(state, gameData) {
 				case ActiveTravel.GoStraight: {
 					if (travel.fromPosition != null) {
 						props.position = travel.fromPosition;
+
+						if (travel.fromIndex) {
+							props.position = clonePosition(state.properties[travel.fromIndex].position);
+						}
 						travel.fromPosition = null;
 					}
 					if (t === props.travel.length - 1) {
@@ -1989,8 +1998,33 @@ function moveObjects(state, gameData) {
 							props.position.x += travel.velocity.x;
 							props.position.y += travel.velocity.y;
 						} else {
-							// TODO: Does this cause problems when velocity is specifically set using GoStraight?
-							travel.velocity = moveToward(props, centre);
+							// TODO: Hacky code to fix Whispy game
+							if (
+								travel.wentStraight &&
+								(area.max.x >= area.min.x && area.max.y >= area.min.y) &&
+								(travel.velocity.x === 0.0 || travel.velocity.y === 0.0)
+							) {
+								if (travel.velocity.x) {
+									props.position = {
+										x: moveCoordinateTo(props.position.x, centre.x, travel.velocity.x),
+										y: props.position.y
+									};
+									if (props.position.x === centre.x) {
+										travel.wentStraight = false;
+									}
+								}
+								if (travel.velocity.y) {
+									props.position = {
+										x: props.position.x,
+										y: moveCoordinateTo(props.position.y, centre.y, travel.velocity.y)
+									};
+									if (props.position.y === centre.y) {
+										travel.wentStraight = false;
+									}
+								}
+							} else {
+								travel.velocity = moveToward(props, centre);
+							}
 						}
 					} else if (travel.roam === Mio.Roam.Bounce) {
 						if (travel.calculateInitialVelocity !== null) {
@@ -2110,7 +2144,7 @@ function moveObjects(state, gameData) {
 			};
 
 			var done = [];
-			
+
 			const moveAttachments = (i) => {
 				let attachments = findAttachments(i);
 				//if (attachments.length !== 0) console.debug(state.frame, i, attachments);
@@ -2123,17 +2157,17 @@ function moveObjects(state, gameData) {
 					position.x += travel.offset.x;
 					position.y += travel.offset.y;
 					state.properties[index].position = position;
-					
+
 					moveAttachments(index);
 				});
 			};
-			
+
 			if ((travel.tag !== ActiveTravel.AttachTo || travel.attachedToThisFrame === true) && travel.tag !== ActiveTravel.Stop) {
 				moveAttachments(i);
 			}
-			
+
 			done = [];
-			
+
 			if (updateAttachments !== null) {
 				moveAttachments(updateAttachments);
 			}
