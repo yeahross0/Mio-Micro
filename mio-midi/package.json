@@ -1,6 +1,6 @@
 {
   "name": "mio-midi",
-  "version": "0.7.0",
+  "version": "1.0.0-beta.1",
   "description": "Loads MIDI data from mio files",
   "main": "src/midi.js",
   "scripts": {

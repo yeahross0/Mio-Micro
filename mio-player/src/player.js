@@ -10,8 +10,7 @@ function windowSizeComparedToOriginal(width, height) {
 
 let silentMusicPlayer = {
 	playMusic: () => false,
-	pauseMusic: () => false,
-	hasTrackEnded: () => false,
+	stopMusic: () => false,
 };
 
 class Player extends EventEmitter {
@@ -88,6 +87,7 @@ class Player extends EventEmitter {
 	}
 
 	stop() {
+		this._musicPlayer.stopMusic();	
 		this.gameId++;
 	}
 
@@ -187,13 +187,14 @@ class Player extends EventEmitter {
 
 		let frameDelay = 1000 / 60;
 		if (this.isPaused) {
-			this._musicPlayer.pauseMusic();
+			this._musicPlayer.stopMusic();
 			this.drawGame(state, gameData, assets);
 			this.context.fillStyle = "#88888844";
 			this.context.fillRect(0, 0, BACKGROUND_WIDTH, BACKGROUND_HEIGHT);
 		} else {
 			while (state.time > state.frame * frameDelay) {
-				if (this._musicPlayer.hasTrackEnded() && gameData.length === Mio.Length.Boss) {
+				// Repeat boss music
+				if (state.frame == 60 * 12) {
 					this._musicPlayer.playMusic();
 					this.emit('replaymusic');
 				}
