@@ -76,8 +76,8 @@ const instrumentLengths = [
 	32, 24, 24, 32,
 	24, 32, 32, 48,
 	// Group 6: 8-bit
-	16, 9, 64, 16,
-	12, 5, 4, 8
+	8, 9, 64, 16,
+	8, 5, 4, 8
 ];
 
 const basePitches = [
@@ -98,7 +98,7 @@ const basePitches = [
 	3, 3, 3, 2,
 	// Group 6: 8-bit
 	3, 3, 3, 3,
-	2, 3, 3, 3,
+	3, 3, 3, 3,
 ];
 
 const buildMidiFile = (mioData, loopTimes = 0) => {
@@ -226,7 +226,7 @@ const buildMidiFile = (mioData, loopTimes = 0) => {
 }
 
 
-const buildRecordMidiFile = (mioData) => {
+window.buildMidiRecordFile = (mioData) => {
 
 	const END_INDEX = 0x102;
 	const BASE_INSTRUMENT_OFFSET = 0x211;
@@ -235,19 +235,23 @@ const buildRecordMidiFile = (mioData) => {
 	const BASE_SONG_OFFSET = 0x107;
 	const BASE_VOLUME_OFFSET = 0x207;
 	const BASE_PAN_OFFSET = 0x20C;
-	const BASE_DRUM_OFFSET = 0x211;
-	const TEMPO_OFFSET = 0x599;
+	const BASE_DRUM_OFFSET = 0x187;
+	const BASE_DRUMSET_OFFSET = 0x211;
+	const TEMPO_OFFSET = 0x101;
 
 	let tracks = [];
 
 	let trackLength = 32;
 
+	let tempo = mioData[TEMPO_OFFSET] * 10 + 60;
+	console.log(tempo);
 
-	for (let segmentIndex = 0; segmentIndex < mioData[END_INDEX]; segmentIndex++) {
-		for (let trackIndex = 0; trackIndex < TRACK_COUNT; trackIndex++) {
+	for (let trackIndex = 0; trackIndex < TRACK_COUNT; trackIndex++) {
+		for (let segmentIndex = 0; segmentIndex < mioData[END_INDEX]; segmentIndex++) {
+
 			let track = new MidiWriter.Track();
 
-			track.setTempo(mioData[TEMPO_OFFSET] * 10 + 60);
+			track.setTempo(tempo);
 
 			let songOffset = BASE_SONG_OFFSET + SEGMENT_OFFSET(segmentIndex) + trackIndex * trackLength;
 
@@ -256,6 +260,7 @@ const buildRecordMidiFile = (mioData) => {
 			let pan = Math.min(127, mioData[BASE_PAN_OFFSET + SEGMENT_OFFSET(segmentIndex) + trackIndex] * PAN_MULTIPLIER);
 
 			let notesUsed = []
+			let wasNoteFound = false;
 
 			let base = basePitches[instrumentUsed];
 
@@ -276,7 +281,34 @@ const buildRecordMidiFile = (mioData) => {
 			for (let i = 0; i < trackLength; i++) {
 				let note = mioData[songOffset + i];
 				if (note !== 255) {
+					wasNoteFound = true;
 					let noteLength = (instrumentLengths[instrumentUsed] * 8);
+					// Shortens high bingbings
+					if (instrumentUsed == 44 && note >= 19) {
+						noteLength = 4 * 8;
+					}
+					let si = segmentIndex;
+					for (var p = i + 1; ; p++) {
+						if (p % trackLength == 0) {
+							si += 1;
+							if (si >= mioData[END_INDEX]) {
+								p = 0;
+								break;
+							}
+						}
+						let otherOffset = BASE_SONG_OFFSET + SEGMENT_OFFSET(si) + trackIndex * trackLength;
+						if (otherOffset + (p % trackLength) <= songOffset + i) {
+							p = 0;
+							break;
+						}
+						if (mioData[otherOffset + (p % trackLength)] !== 255) {
+							break;
+						}
+					}
+					if (p != 0) {
+						let peek = p * 32;
+						noteLength = Math.min(noteLength, peek - i * 32);
+					}
 					let startTick = 32 * i + segmentIndex * 1024;
 					let duration = 'T' + noteLength;
 					track.addEvent(new MidiWriter.NoteEvent({
@@ -289,8 +321,9 @@ const buildRecordMidiFile = (mioData) => {
 				}
 			}
 
-			console.log(track.events)
-			tracks.push(track);
+			if (wasNoteFound) {
+				tracks.push(track);
+			}
 		}
 	}
 
@@ -299,10 +332,12 @@ const buildRecordMidiFile = (mioData) => {
 
 		let track = new MidiWriter.Track();
 
+		track.setTempo(tempo);
+
 		let volume = mioData[BASE_VOLUME_OFFSET + SEGMENT_OFFSET(segmentIndex) + 4] * VOLUME_MULTIPLIER;
 		let pan = Math.min(127, mioData[BASE_PAN_OFFSET + SEGMENT_OFFSET(segmentIndex) + 4] * PAN_MULTIPLIER);
 
-		let drumSet = mioData[0xBA6F] & 0x7;
+		let drumSet = mioData[BASE_DRUMSET_OFFSET + SEGMENT_OFFSET(segmentIndex) + 4] & 0x7;
 
 		let drumConversion;
 		if (drumSet === 0) drumConversion = [35, 38, 42, 46, 49, 45, 50, 47, 31, 39, 82, 25, 80, 81];
