@@ -465,8 +465,8 @@ audioNames.forEach(name => {
 	sounds.push(audio);
 });
 
-let winSounds = [loadSound('win1'), loadSound('win2')];
-let loseSounds = [loadSound('lose1'), loadSound('lose2')];
+let winSounds = [loadSound('win1'), loadSound('win2'), loadSound('win3')];
+let loseSounds = [loadSound('lose1'), loadSound('lose2'), loadSound('lose3')];
 
 let randomInRange = (min, max) => min + (max - min) * Math.random();
 let randomIntInRange = (min, max) => Math.floor(randomInRange(min, max));

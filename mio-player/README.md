@@ -59,8 +59,8 @@ const loadSound = (name) => {
 	return audio;
 };
 
-let winSounds = [loadSound('win1'), loadSound('win2')];
-let loseSounds = [loadSound('lose1'), loadSound('lose2')];
+let winSounds = [loadSound('win1'), loadSound('win2'), loadSound('win3')];
+let loseSounds = [loadSound('lose1'), loadSound('lose2'), loadSound('lose3')];
 
 let sounds = [];
 mioPlayer.soundNames.forEach(name => {
