@@ -193,12 +193,6 @@ class Player extends EventEmitter {
 			this.context.fillRect(0, 0, BACKGROUND_WIDTH, BACKGROUND_HEIGHT);
 		} else {
 			while (state.time > state.frame * frameDelay) {
-				// Repeat boss music
-				if (state.frame == 60 * 12) {
-					this._musicPlayer.playMusic();
-					this.emit('replaymusic');
-				}
-
 				this.updateGame(gameData, state, assets);
 				this.emit('frameupdate', state.frame - 1, endFrame);
 				if (state.winStatus === Mio.GameCondition.Win) {
