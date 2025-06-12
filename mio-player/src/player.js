@@ -274,7 +274,7 @@ class Player extends EventEmitter {
 			let animation = (state.confetti[i].animationIndex + Math.floor(state.frame / 8)) % 4;
 			let bitmapX = animation * 15;
 			let args = [this._confettiBitmap, bitmapX, 0, 15, 15, state.confetti[i].position.x, state.confetti[i].position.y, 15, 15];
-			context.drawImage(...args);
+			this.context.drawImage(...args);
 
 			if (!this.isPaused) {
 				state.confetti[i].position.x += state.confetti[i].velocity.x;
@@ -293,10 +293,10 @@ class Player extends EventEmitter {
 		if (state.flash !== undefined && state.flash > 0) {
 			let alpha = state.flash / 10;
 			alpha = 0.6 - Math.abs(alpha - 0.5);
-			context.fillStyle = "rgba(255, 255, 255, " + alpha + ")";
+			this.context.fillStyle = "rgba(255, 255, 255, " + alpha + ")";
 			// TODO: BGWidth and height
-			context.rect(0, 0, 192, 128);
-			context.fill();
+			this.context.rect(0, 0, 192, 128);
+			this.context.fill();
 		}
 
 		if (state.frame < 45 && this.shouldShowCommand) {
